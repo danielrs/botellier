@@ -1,3 +1,3 @@
 ## Botellier
 
-A wanna-be, distributed key-value in-memory store.
+A wannabe, distributed key-value in-memory store.
