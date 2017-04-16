@@ -1,7 +1,5 @@
 package org.botellier.store
 
-import org.botellier.Store
-
 enum class ValueType {
      INT, FLOAT, STRING, LIST, SET, MAP
 }
@@ -68,6 +66,8 @@ class ListValue(initialValues: List<StoreValue> = mutableListOf()) : StoreValue 
         })
     }
 
+    fun toList(): List<StoreValue> = list.map{ it.clone() }
+
     override fun getType(): ValueType = ValueType.LIST
     override fun clone(): StoreValue = ListValue(list.map { it.clone() })
 
@@ -101,10 +101,12 @@ class SetValue(initialValues: Set<String> = setOf()) : StoreValue {
         })
     }
 
+    fun toSet(): Set<String> = set.toSet()
+
     override fun getType(): ValueType = ValueType.SET
     override fun clone(): StoreValue = SetValue(set.toSet())
 
-    override fun toString(): String = set.joinToString(prefix = "{|", postfix = "|}")
+    override fun toString(): String = set.joinToString(prefix = "<", postfix = ">")
 }
 
 class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreValue {
@@ -112,13 +114,13 @@ class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreValue {
 
     fun get(key: String): StoreValue? {
         return synchronized(map, {
-            map.get(key)
+            map[key]
         })
     }
 
     fun set(key: String, value: StoreValue) {
         synchronized(map, {
-            map.set(key, value.clone())
+            map[key] = value.clone()
         })
     }
 
@@ -134,8 +136,10 @@ class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreValue {
         })
     }
 
+    fun toMap(): Map<String, StoreValue> = map.mapValues { it.value.clone() }
+
     override fun getType(): ValueType = ValueType.MAP
-    override fun clone(): StoreValue = MapValue(map.toMap().mapValues { it.value.clone() })
+    override fun clone(): StoreValue = MapValue(map.mapValues { it.value.clone() })
 
     override fun toString(): String {
         val str = StringBuilder()
@@ -148,8 +152,11 @@ class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreValue {
     }
 }
 
+// Extension functions for common built-in types.
 fun Int.toValue(): IntValue = IntValue(this)
 fun Float.toValue(): FloatValue = FloatValue(this.toDouble())
 fun Double.toValue(): FloatValue = FloatValue(this)
 fun String.toValue(): StringValue = StringValue(this)
-// TODO: Implement `toValue()` for lists, sets and maps.
+fun List<StoreValue>.toValue(): ListValue = ListValue(this)
+fun Set<String>.toValue(): SetValue = SetValue(this)
+fun Map<String, StoreValue>.toValue(): MapValue = MapValue(this)
