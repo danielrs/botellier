@@ -4,10 +4,10 @@ import org.botellier.store.StoreValue
 import java.util.concurrent.locks.ReentrantLock
 
 class Store {
-    var hashMap: HashMap<String, Pair<ReentrantLock, StoreValue>> = HashMap()
+    var map: MutableMap<String, Pair<ReentrantLock, StoreValue>> = mutableMapOf()
 
     fun get(key: String): StoreValue? {
-        val pair = hashMap.get(key)
+        val pair = map.get(key)
         if (pair != null) {
             val (lock, value) = pair
 
@@ -27,16 +27,18 @@ class Store {
     }
 
     fun apply(key: String, defaultValue: StoreValue, f: (StoreValue) -> StoreValue) {
-        val pair = hashMap.get(key)
+        val pair = map.get(key)
         if (pair != null) {
             val (lock, value) = pair
 
             lock.lock()
-            hashMap.set(key, Pair(lock, f(value)))
+            map.set(key, Pair(lock, f(value)))
             lock.unlock()
         }
         else {
-            hashMap.set(key, Pair(ReentrantLock(), defaultValue))
+            map.set(key, Pair(ReentrantLock(), defaultValue))
         }
     }
+
+    override fun toString(): String = map.toString()
 }
