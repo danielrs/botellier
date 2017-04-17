@@ -60,6 +60,18 @@ class StringValue(val initialValue: String = "") : StoreValue {
 class ListValue(initialValues: List<StoreValue> = mutableListOf()) : StoreCollection<StoreValue> {
     private var list: MutableList<StoreValue> = initialValues.map { it.clone() }.toMutableList()
 
+    fun get(index: Int): StoreValue {
+        return synchronized(list) {
+            list.get(index)
+        }
+    }
+
+    fun set(index: Int, value: StoreValue) {
+        synchronized(list) {
+            list.set(index, value.clone())
+        }
+    }
+
     fun lpush(value: StoreValue) {
         synchronized(list) {
             list.add(0, value)
@@ -83,6 +95,8 @@ class ListValue(initialValues: List<StoreValue> = mutableListOf()) : StoreCollec
             list.removeAt(list.lastIndex)
         }
     }
+
+    fun slice(range: IntRange): ListValue = ListValue(list.slice(range).map { it.clone() })
 
     fun toList(): List<StoreValue> = list.map{ it.clone() }
 

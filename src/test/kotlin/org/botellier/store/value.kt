@@ -119,4 +119,21 @@ class StoreValueTest {
         }
         Assert.assertEquals(res, 3)
     }
+
+    @Test
+    fun settingAndGettingList() {
+        val list = listOf(1, 2, 3).map(Int::toValue).toValue()
+        list.set(1, 2.0.toValue())
+        list.set(2, "3".toValue())
+
+        Assert.assertEquals((list.get(0) as IntValue).value, 1)
+        Assert.assertEquals((list.get(1) as FloatValue).value, 2.0, 0.001)
+        Assert.assertEquals((list.get(2) as StringValue).value, "3")
+    }
+
+    @Test
+    fun slicingList() {
+        val list = listOf(1, 2, 3).map(Int::toValue).toValue()
+        Assert.assertEquals(list.slice(0..2).toList().map{ (it as IntValue).value }, listOf(1, 2, 3))
+    }
 }

@@ -30,4 +30,10 @@ fun main(args: Array<String>) {
 
     store.set("data", map)
     println("Store: $store")
+
+    val list = map.get("numbers") as ListValue
+    for (item in list.toList().subList(0, 10)) {
+        println(item)
+    }
+
 }
