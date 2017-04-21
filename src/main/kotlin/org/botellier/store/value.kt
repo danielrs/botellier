@@ -1,6 +1,7 @@
 package org.botellier.store
 
 import java.io.Serializable
+import java.util.concurrent.ConcurrentHashMap
 
 enum class ValueType {
      INT, FLOAT, STRING, LIST, SET, MAP
@@ -11,50 +12,45 @@ interface StoreValue : Serializable {
     fun clone(): StoreValue
 }
 
+abstract class StorePrimitive<T>(initialValue: T) : StoreValue, Comparable<StorePrimitive<T>>
+    where T: Comparable<T> {
+    var value: T = initialValue
+        get() {
+            synchronized(field) {
+                return field
+            }
+        }
+        set(value) {
+            synchronized(field) {
+                field = value
+            }
+        }
+
+    override fun compareTo(other: StorePrimitive<T>): Int {
+        return value.compareTo(other.value)
+    }
+}
+
 interface StoreCollection<out T> : StoreValue, Iterable<T> {
     val size: Int
 }
 
-class IntValue(val initialValue: Int = 0) : StoreValue {
-    var value: Int = initialValue
-        set(value) {
-            synchronized(field) {
-                field = value
-            }
-        }
-
+class IntValue(initialValue: Int = 0) : StorePrimitive<Int>(initialValue) {
     override fun type(): ValueType = ValueType.INT
-    override fun clone(): IntValue = IntValue(initialValue)
-
+    override fun clone(): IntValue = IntValue(value)
     override fun toString(): String = value.toString()
 }
 
-class FloatValue(val initialValue: Double = 0.0) : StoreValue {
-    var value: Double = initialValue
-        set(value) {
-            synchronized(field) {
-                field = value
-            }
-        }
-
+class FloatValue(initialValue: Double = 0.0) : StorePrimitive<Double>(initialValue) {
     override fun type(): ValueType = ValueType.FLOAT
-    override fun clone(): FloatValue = FloatValue(initialValue)
-
+    override fun clone(): FloatValue = FloatValue(value)
     override fun toString(): String = value.toString()
 }
 
-class StringValue(val initialValue: String = "") : StoreValue {
-    var value: String = initialValue
-        set(value) {
-            synchronized(field) {
-                field = value
-            }
-        }
-
+class StringValue(initialValue: String = "") : StorePrimitive<String>(initialValue) {
     override fun type(): ValueType = ValueType.STRING
-    override fun clone(): StringValue = StringValue(initialValue)
-
-    override fun toString(): String = value.toString()
+    override fun clone(): StringValue = StringValue(value)
+    override fun toString(): String = value
 }
 
 class ListValue(initialValues: List<StoreValue> = mutableListOf()) : StoreCollection<StoreValue> {
@@ -69,6 +65,12 @@ class ListValue(initialValues: List<StoreValue> = mutableListOf()) : StoreCollec
     fun set(index: Int, value: StoreValue) {
         synchronized(list) {
             list.set(index, value.clone())
+        }
+    }
+
+    fun remove(index: Int): StoreValue {
+        return synchronized(list) {
+            list.removeAt(index)
         }
     }
 
@@ -148,30 +150,23 @@ class SetValue(initialValues: Set<String> = setOf()) : StoreCollection<String> {
 }
 
 class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreCollection<Map.Entry<String, StoreValue>> {
-    private var map: MutableMap<String, StoreValue> = initialValues.mapValues { it.value.clone() }.toMutableMap()
+    private var map: ConcurrentHashMap<String, StoreValue> =
+            ConcurrentHashMap(initialValues.mapValues { it.value.clone() }.toMap())
 
     fun get(key: String): StoreValue? {
-        return synchronized(map) {
-            map[key]
-        }
+        return map[key]
     }
 
     fun set(key: String, value: StoreValue) {
-        synchronized(map) {
-            map[key] = value.clone()
-        }
+        map[key] = value.clone()
     }
 
-    fun unset(key: String) {
-        synchronized(map) {
-            map.remove(key)
-        }
+    fun remove(key: String) {
+        map.remove(key)
     }
 
     fun clear() {
-        synchronized(map) {
-            map.clear()
-        }
+        map.clear()
     }
 
     fun toMap(): Map<String, StoreValue> = map.mapValues { it.value.clone() }

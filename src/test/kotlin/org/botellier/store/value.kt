@@ -26,6 +26,37 @@ class StoreValueTest {
     }
 
     @Test
+    fun clonesFromModifiedPrimitives() {
+        val int = IntValue(1)
+        val float = FloatValue(1.0)
+        val string = StringValue("one")
+
+        int.value = 2
+        float.value = 2.0
+        string.value = "two"
+
+        Assert.assertEquals(int.value, int.clone().value)
+        Assert.assertEquals(float.value, float.clone().value, 0.001)
+        Assert.assertEquals(string.value, string.clone().value)
+    }
+
+    @Test
+    fun primitivesComparisons() {
+        val int = IntValue(1)
+        val float = FloatValue(1.0)
+        val string = StringValue("one")
+
+        Assert.assertTrue(int < IntValue(2))
+        Assert.assertTrue(int > IntValue(0))
+
+        Assert.assertTrue(float < FloatValue(2.0))
+        Assert.assertTrue(float > FloatValue(0.0))
+
+        Assert.assertTrue(string < StringValue("two"))
+        Assert.assertTrue(string > StringValue("abc"))
+    }
+
+    @Test
     fun cloneNotSameAsOriginal() {
         val int = IntValue(1)
         val float = FloatValue(1.0)
@@ -80,7 +111,7 @@ class StoreValueTest {
     fun modifyingMapClone() {
         val map = mapOf("one" to 1, "two" to 2, "three" to 3).mapValues { it.value.toValue() }.toValue()
         val clone = map.clone()
-        clone.unset("one")
+        clone.remove("one")
 
         Assert.assertEquals(map.size, 3)
         Assert.assertEquals(clone.size, 2)
