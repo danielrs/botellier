@@ -1,9 +1,9 @@
 package org.botellier.storeprinter
 
-import org.botellier.Store
+import org.botellier.store.StoreValue
 
 interface Printer {
-    val store: Store
+    val value: StoreValue
     var pretty: Boolean
     var indent: String
 
