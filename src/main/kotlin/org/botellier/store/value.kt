@@ -146,7 +146,7 @@ class SetValue(initialValues: Set<String> = setOf()) : StoreCollection<String> {
     override val size get() = set.size
     override fun iterator(): Iterator<String> = toSet().iterator()
 
-    override fun toString(): String = set.joinToString(prefix = "<", postfix = ">")
+    override fun toString(): String = set.joinToString(prefix = "[", postfix = "]")
 }
 
 class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreCollection<Map.Entry<String, StoreValue>> {

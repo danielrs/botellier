@@ -1,7 +1,7 @@
-package main
+package org.botellier
 
-import org.botellier.Store
 import org.botellier.store.*
+import org.botellier.storeprinter.JsonPrinter
 
 fun main(args: Array<String>) {
     val store = Store()
@@ -15,17 +15,15 @@ fun main(args: Array<String>) {
     store.set("used", setOf("shoes", "pants").toValue())
     store.set("hashes", mapOf("1" to "one", "2" to "two", "3" to "three").mapValues { it.value.toValue() }.toValue())
 
-    println("Map contents:")
-    for ((_, value) in store) {
-        when (value) {
-            is IntValue -> println("Integer: $value")
-            is FloatValue -> println("Float: $value")
-            is StringValue -> println("String: $value")
-            is ListValue -> println("List: $value")
-            is SetValue -> println("Set: $value")
-            is MapValue -> println("Map: $value")
-        }
-    }
+    val mixedList = listOf(
+            IntValue(1),
+            FloatValue(2.0),
+            StringValue("Three"),
+            listOf(IntValue(4), FloatValue(5.0), StringValue("Six")).toValue()
+    )
 
-    println("Store: $store")
+    store.set("mixed", mixedList.toValue())
+
+    val printer = JsonPrinter(store)
+    println("Store: ${printer.print()}")
 }
