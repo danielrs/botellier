@@ -1,21 +1,19 @@
 package org.botellier.protocol
 
 import org.botellier.store.*
-import org.botellier.storeprinter.Printer
+import org.botellier.serializer.Serializer
 import java.io.ByteArrayOutputStream
 
 private val CR: Byte = '\r'.toByte()
 private val LF: Byte = '\n'.toByte()
 private val NEWLINE: ByteArray = byteArrayOf(CR, LF)
 
-class BytePrinter(override val value: StoreValue) : Printer {
-    fun printBytes(): ByteArray {
+class ByteSerializer(override val value: StoreValue) : Serializer {
+    override fun serialize(): ByteArray {
         val bos = ByteArrayOutputStream()
         render(bos, value)
         return bos.toByteArray()
     }
-
-    override fun print(): String = printBytes().toString()
 
     private fun render(bos: ByteArrayOutputStream, value: StoreValue) {
         when (value) {
@@ -24,7 +22,7 @@ class BytePrinter(override val value: StoreValue) : Printer {
             is StringValue -> renderString(bos, value)
             is ListValue -> renderList(bos, value)
             is SetValue -> renderSet(bos, value)
-            is MapValue -> renderMap(bos, value.toMap())
+            is MapValue -> renderMap(bos, value)
         }
     }
 
@@ -52,23 +50,24 @@ class BytePrinter(override val value: StoreValue) : Printer {
     }
 
     private fun renderList(bos: ByteArrayOutputStream, list: ListValue) {
-        renderSequence(bos, list, list.size)
-    }
-
-    private fun renderSet(bos: ByteArrayOutputStream, set: SetValue) {
-        renderSequence(bos, set.map(String::toValue), set.size)
-    }
-
-    private fun renderSequence(bos: ByteArrayOutputStream, iterable: Iterable<StoreValue>, size: Int) {
         bos.write('*'.toInt())
-        bos.write(size.toString().toByteArray())
+        bos.write(list.size.toString().toByteArray())
         bos.write(NEWLINE)
-        for (value in iterable) {
+        for (value in list) {
             render(bos, value)
         }
     }
 
-    private fun renderMap(bos: ByteArrayOutputStream, map: Map<String, StoreValue>) {
+    private fun renderSet(bos: ByteArrayOutputStream, set: SetValue) {
+        bos.write('&'.toInt())
+        bos.write(set.size.toString().toByteArray())
+        bos.write(NEWLINE)
+        for (value in set) {
+            render(bos, StringValue(value))
+        }
+    }
+
+    private fun renderMap(bos: ByteArrayOutputStream, map: MapValue) {
         bos.write('#'.toInt())
         bos.write(map.size.toString().toByteArray())
         bos.write(NEWLINE)
@@ -80,4 +79,4 @@ class BytePrinter(override val value: StoreValue) : Printer {
 }
 
 // Extensions.
-fun StoreValue.toByteArray(): ByteArray = BytePrinter(this).printBytes()
+fun StoreValue.toByteArray(): ByteArray = ByteSerializer(this).serialize()

@@ -1,12 +1,14 @@
-package org.botellier.storeprinter
+package org.botellier.serializer
 
 import org.botellier.store.*
 
-class JsonPrinter(override val value: StoreValue,
+class JsonSerializer(override val value: StoreValue,
                   var pretty: Boolean = true,
-                  var indent: String = "    ") : Printer {
+                  var indent: String = "    ") : Serializer {
 
-    override fun print(): String {
+    override fun serialize(): ByteArray = print().toByteArray()
+
+    fun print(): String {
         val builder = StringBuilder()
         render(builder, "", value)
         return builder.toString()
@@ -61,4 +63,4 @@ class JsonPrinter(override val value: StoreValue,
 
 // Extensions.
 fun StoreValue.toJson(pretty: Boolean = true, indent: String = "    "): String =
-        JsonPrinter(this, pretty, indent).print()
+        JsonSerializer(this, pretty, indent).print()

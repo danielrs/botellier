@@ -2,7 +2,7 @@ package org.botellier
 
 import org.botellier.protocol.toByteArray
 import org.botellier.store.*
-import org.botellier.storeprinter.toJson
+import org.botellier.serializer.toJson
 
 fun main(args: Array<String>) {
     val store = Store()
@@ -29,7 +29,5 @@ fun main(args: Array<String>) {
 
     val value = store
     val bytes = value.toByteArray()
-
     println("Value: ${String(bytes)}")
-    println("Bytes: $bytes")
 }
