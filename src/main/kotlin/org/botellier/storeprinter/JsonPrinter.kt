@@ -3,8 +3,8 @@ package org.botellier.storeprinter
 import org.botellier.store.*
 
 class JsonPrinter(override val value: StoreValue,
-                  override var pretty: Boolean = true,
-                  override var indent: String = "    ") : Printer {
+                  var pretty: Boolean = true,
+                  var indent: String = "    ") : Printer {
 
     override fun print(): String {
         val builder = StringBuilder()
@@ -58,3 +58,7 @@ class JsonPrinter(override val value: StoreValue,
         render(builder, indent, keyValue.value)
     }
 }
+
+// Extensions.
+fun StoreValue.toJson(pretty: Boolean = true, indent: String = "    "): String =
+        JsonPrinter(this, pretty, indent).print()

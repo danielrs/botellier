@@ -1,7 +1,8 @@
 package org.botellier
 
+import org.botellier.protocol.toByteArray
 import org.botellier.store.*
-import org.botellier.storeprinter.JsonPrinter
+import org.botellier.storeprinter.toJson
 
 fun main(args: Array<String>) {
     val store = Store()
@@ -24,6 +25,11 @@ fun main(args: Array<String>) {
 
     store.set("mixed", mixedList.toValue())
 
-    val printer = JsonPrinter(store)
-    println("Store: ${printer.print()}")
+    println("Store: ${store.toJson()}")
+
+    val value = store
+    val bytes = value.toByteArray()
+
+    println("Value: ${String(bytes)}")
+    println("Bytes: $bytes")
 }
