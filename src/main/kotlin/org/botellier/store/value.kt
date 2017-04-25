@@ -99,11 +99,10 @@ class ListValue(initialValues: List<StoreValue> = mutableListOf()) : StoreCollec
     }
 
     fun slice(range: IntRange): ListValue = ListValue(list.slice(range).map { it.clone() })
-
     fun toList(): List<StoreValue> = list.map{ it.clone() }
 
     override fun type(): ValueType = ValueType.LIST
-    override fun clone(): ListValue = ListValue(list.map { it.clone() })
+    override fun clone(): ListValue = ListValue(list)
 
     override val size get() = list.size
     override fun iterator(): Iterator<StoreValue> = toList().iterator()
@@ -172,7 +171,7 @@ class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreCollecti
     fun toMap(): Map<String, StoreValue> = map.mapValues { it.value.clone() }
 
     override fun type(): ValueType = ValueType.MAP
-    override fun clone(): MapValue = MapValue(map.mapValues { it.value.clone() })
+    override fun clone(): MapValue = MapValue(map)
 
     override val size get() = map.size
     override fun iterator(): Iterator<Map.Entry<String, StoreValue>> = toMap().iterator()

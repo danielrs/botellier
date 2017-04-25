@@ -90,7 +90,7 @@ class StoreValueTest {
     @Test
     fun modifyingListClone() {
         val list = listOf(1, 2, 3).map(Int::toValue).toValue()
-        val clone =list.clone()
+        val clone = list.clone()
         clone.lpop()
 
         Assert.assertEquals(list.size, 3)
