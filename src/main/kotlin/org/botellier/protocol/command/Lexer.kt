@@ -7,7 +7,7 @@ class Lexer(val string: String) {
 
     /**
      * Returns a list of tokens from the given string.
-     * @return a list of tokens
+     * @return a list of tokens.
      * @throws LexerException if the string format is invalid.
      */
     fun lex(): List<Token> {
@@ -98,5 +98,5 @@ class Lexer(val string: String) {
     data class FloatToken(val value: Double) : Token(TokenType.FLOAT)
     data class StringToken(val value: String) : Token(TokenType.STRING)
 
-    class LexerException(index: Int, message: String?) : Throwable("(At $index) $message")
+    class LexerException(index: Int, message: String?) : Throwable("(At [$index]) $message")
 }
