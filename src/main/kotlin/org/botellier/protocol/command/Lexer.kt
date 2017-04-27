@@ -87,7 +87,6 @@ class Lexer(val string: String) {
 
     // Inner classes.
     enum class TokenType {
-        COMMAND,
         INT,
         FLOAT,
         STRING,
