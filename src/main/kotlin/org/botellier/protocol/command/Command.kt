@@ -13,7 +13,7 @@ abstract class Command {
 
     val name: String by lazy {
         val withCommand = this::class.annotations.find { it is WithCommand } as? WithCommand
-        withCommand?.name?.toUpperCase() ?: throw InvalidCommandException()
+        withCommand?.name?.toUpperCase() ?: throw InvalidCommandDeclarationException()
     }
 
     val parameters by lazy {
@@ -43,7 +43,6 @@ abstract class Command {
                 }
     }
 
-
     // Values for initializing parameters in child classes.
     protected val intValue = CValue.Primitive.Int(0)
     protected val floatValue = CValue.Primitive.Float(0.0)
@@ -58,6 +57,7 @@ abstract class Command {
     // Other.
     override fun toString(): String {
         val builder = StringBuilder()
+        builder.append("$name ")
         var it = parameters.iterator()
         while (it.hasNext()) {
             builder.append(it.next().get().toString())
@@ -65,12 +65,13 @@ abstract class Command {
                 builder.append(" ")
             }
         }
-
         return builder.toString()
     }
-}
 
-class InvalidCommandException : Throwable("Command must declare a name using the @WithCommand annotation")
-class InvalidPropertyException(className: String, paramName: String, message: String)
-    : Throwable("Property '$paramName' from [$className]: $message")
-class InvalidPrimitiveException(value: Any) : Throwable("Cannot construct a command primitive using $value.")
+    // Exceptions.
+    class InvalidCommandDeclarationException
+        : Throwable("Command must declare a name using the @WithCommand annotation")
+
+    class InvalidPropertyException(className: String, paramName: String, message: String)
+        : Throwable("Property '$paramName' from [$className]: $message")
+}

@@ -42,7 +42,8 @@ class CommandParserTest {
     @Test
     fun setCommand() {
         val tokens = Lexer("$3\r\nSET\r\n$3\r\nkey\r\n$2\r\n10\r\n").lex()
-        val command = parseCommand(tokens)
+        val command = CommandParser.parse(tokens)
+        println(command)
         Assert.assertTrue(command is SetCommand)
     }
 

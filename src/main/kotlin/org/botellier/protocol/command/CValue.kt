@@ -29,4 +29,22 @@ sealed class CValue {
     }
 
     data class Pair(val first: Primitive, val second: Primitive) : CValue()
+
+    override final fun toString(): String {
+        return when(this) {
+            is Primitive.Int -> "${this.value}:Int"
+            is Primitive.Float -> "${this.value}:Int"
+            is Primitive.String -> "\"${this.value}\":String"
+            is Primitive.Any -> "Any:Any"
+            is Array.Int -> "${this.value}:IntArray"
+            is Array.Float -> "${this.value}:FloatArray"
+            is Array.String -> "${this.value}:StringArray"
+            is Array.Any -> "${this.value}:AnyArray"
+            is Pair -> "(${this.first}, ${this.second}):Pair"
+        }
+    }
+
+    // Exceptions.
+    class InvalidPrimitiveException(value: Any)
+        : Throwable("Cannot construct a command primitive using $value.")
 }

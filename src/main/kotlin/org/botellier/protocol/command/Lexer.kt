@@ -11,25 +11,43 @@ class Lexer(val string: String) {
      * @throws LexerException if the string format is invalid.
      */
     fun lex(): List<Token> {
-        val result: MutableList<Token> = mutableListOf()
+        val result = mutableListOf<Token>()
 
+        // Lexing begins here.
         index = 0
         while (index < string.length) {
-            result.add(token())
+            when (string[index]) {
+                '*' -> result.add(tokenList())
+                else -> result.add(token())
+            }
         }
 
-        return result
+        if (result.size == 1 && result.first() is ListToken) {
+            return (result.first() as ListToken).value
+        }
+        else {
+            return result
+        }
     }
 
     // Lexing functions.
-    private fun token(): Token {
-        val length = length()
+    private fun token(): PrimitiveToken {
+        val length = length('$')
         val tokenString = bulkString(length)
         return castToken(tokenString)
     }
 
-    private fun length(): Int {
-        if (string[index] == '$') {
+    private fun tokenList(): ListToken {
+        val length = length('*')
+        val array = ArrayList<PrimitiveToken>(length)
+        for (i in 0..length - 1) {
+            array.add(token())
+        }
+        return ListToken(array.toList())
+    }
+
+    private fun length(prefix: Char): Int {
+        if (string[index] == prefix) {
             index++
             try {
                 return Integer.parseInt(string())
@@ -39,7 +57,7 @@ class Lexer(val string: String) {
             }
         }
         else {
-            throw LexerException(index, "Expected '$'.")
+            throw LexerException(index, "Expected '$prefix'.")
         }
     }
 
@@ -70,7 +88,7 @@ class Lexer(val string: String) {
     }
 
     // Utilities
-    private fun castToken(string: String): Token {
+    private fun castToken(string: String): PrimitiveToken {
         try {
             if (string.matches(Regex("^[-+]?[0-9]+$"))) {
                 return IntToken(string.toInt())
@@ -86,16 +104,13 @@ class Lexer(val string: String) {
     }
 
     // Inner classes.
-    enum class TokenType {
-        INT,
-        FLOAT,
-        STRING,
-    }
+    interface Token
+    interface PrimitiveToken : Token
 
-    open abstract class Token(val type: TokenType)
-    data class IntToken(val value: Int) : Token(TokenType.INT)
-    data class FloatToken(val value: Double) : Token(TokenType.FLOAT)
-    data class StringToken(val value: String) : Token(TokenType.STRING)
+    data class IntToken(val value: Int) : PrimitiveToken
+    data class FloatToken(val value: Double) : PrimitiveToken
+    data class StringToken(val value: String) : PrimitiveToken
+    data class ListToken(val value: List<PrimitiveToken>) : Token
 
     class LexerException(index: Int, message: String?) : Throwable("(At [$index]) $message")
 }

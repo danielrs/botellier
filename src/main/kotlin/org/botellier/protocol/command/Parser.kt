@@ -1,45 +1,18 @@
 package org.botellier.protocol.command
 
-import kotlin.reflect.full.createInstance
-
 /**
- * Parsing functions for convenience.
+ * Takes a list of tokens and an extension lambda to parse the given tokens.
+ * @param tokens the list of Lexer.Token values.
+ * @param init the extension lambda.
+ * @return A parser that contains the given tokens.
  */
-
-fun parseCommand(tokens: List<Lexer.Token>): Command {
-
-    val firstToken = tokens.first()
-
-    if (firstToken is Lexer.StringToken) {
-        val commandClass = COMMANDS[firstToken.value.toUpperCase()]
-        if (commandClass != null) {
-
-            val command = commandClass.createInstance()
-            parseTokens(tokens.drop(1)) {
-                parameters@ for (p in command.parameters) {
-                    when {
-                        p.isInt -> p.set(CValue.primitive(int()))
-                        p.isFloat -> p.set(CValue.primitive(float()))
-                        p.isString -> p.set(CValue.primitive(string()))
-                        p.isAny -> p.set(CValue.primitive(any()))
-                    }
-                }
-            }
-            return command
-
-        }
-    }
-
-    throw Parser.ParserException("Unknown command: $tokens")
-}
-
-fun parse(string: String, init: Parser.() -> Unit): Parser = parseTokens(Lexer(string).lex(), init)
-
-fun parseTokens(tokens: List<Lexer.Token>, init: Parser.() -> Unit): Parser {
+fun parse(tokens: List<Lexer.Token>, init: Parser.() -> Unit): Parser {
     val parser = Parser(tokens)
-    parser.init()
+    parser.parse(init)
     return parser
 }
+
+fun parse(string: String, init: Parser.() -> Unit): Parser = parse(Lexer(string).lex(), init)
 
 /**
  * Parser.
@@ -55,6 +28,10 @@ open class Parser(val tokens: List<Lexer.Token>) {
     fun parse(init: Parser.() -> Unit) {
         index = 0
         this.init()
+
+        if (index < tokens.size) {
+            throw ParserException("Not all input was consumed.")
+        }
     }
 
     fun int(): Int {
@@ -117,6 +94,10 @@ open class Parser(val tokens: List<Lexer.Token>) {
             is Lexer.StringToken -> token.value
             else -> throw ParserException("Invalid token in any().")
         }
+    }
+
+    fun skip(n: Int = 0) {
+        if (n <= 0) index = tokens.size else index += n
     }
 
     private fun token(): Lexer.Token {
