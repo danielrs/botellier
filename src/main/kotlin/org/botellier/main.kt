@@ -29,5 +29,5 @@ fun main(args: Array<String>) {
 
     val value = store
     val bytes = value.toByteArray()
-    println("Value: ${String(bytes)}")
+    println("CValue: ${String(bytes)}")
 }
