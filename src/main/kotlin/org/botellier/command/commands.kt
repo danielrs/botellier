@@ -1,4 +1,4 @@
-package org.botellier.protocol.command
+package org.botellier.command
 
 import kotlin.reflect.full.createInstance
 

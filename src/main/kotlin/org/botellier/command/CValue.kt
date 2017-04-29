@@ -1,4 +1,4 @@
-package org.botellier.protocol.command
+package org.botellier.command
 
 // Types allowed in command parameters.
 sealed class CValue {

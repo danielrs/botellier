@@ -1,4 +1,4 @@
-package org.botellier.protocol.command
+package org.botellier.command
 
 // check: http://stackoverflow.com/questions/17848207/making-a-lexical-analyzer
 // check: http://llvm.org/docs/tutorial/index.html

@@ -1,4 +1,4 @@
-package org.botellier.protocol.command
+package org.botellier.command
 
 /**
  * Takes a list of tokens and an extension lambda to parse the given tokens.

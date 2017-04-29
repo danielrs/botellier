@@ -1,4 +1,4 @@
-package org.botellier.protocol.command
+package org.botellier.command
 
 import org.junit.Assert
 import org.junit.Test
