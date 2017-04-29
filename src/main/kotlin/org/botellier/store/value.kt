@@ -3,12 +3,7 @@ package org.botellier.store
 import java.io.Serializable
 import java.util.concurrent.ConcurrentHashMap
 
-enum class ValueType {
-     INT, FLOAT, STRING, LIST, SET, MAP
-}
-
 interface StoreValue : Serializable {
-    abstract val type: ValueType
     fun clone(): StoreValue
 }
 
@@ -36,19 +31,16 @@ interface StoreCollection<out T> : StoreValue, Iterable<T> {
 }
 
 class IntValue(initialValue: Int = 0) : StorePrimitive<Int>(initialValue) {
-    override val type: ValueType = ValueType.INT
     override fun clone(): IntValue = IntValue(value)
     override fun toString(): String = value.toString()
 }
 
 class FloatValue(initialValue: Double = 0.0) : StorePrimitive<Double>(initialValue) {
-    override val type: ValueType = ValueType.FLOAT
     override fun clone(): FloatValue = FloatValue(value)
     override fun toString(): String = value.toString()
 }
 
 class StringValue(initialValue: String = "") : StorePrimitive<String>(initialValue) {
-    override val type: ValueType = ValueType.STRING
     override fun clone(): StringValue = StringValue(value)
     override fun toString(): String = value
 }
@@ -101,7 +93,6 @@ class ListValue(initialValues: List<StoreValue> = mutableListOf()) : StoreCollec
     fun slice(range: IntRange): ListValue = ListValue(list.slice(range).map { it.clone() })
     fun toList(): List<StoreValue> = list.map{ it.clone() }
 
-    override val type: ValueType = ValueType.LIST
     override fun clone(): ListValue = ListValue(list)
 
     override val size get() = list.size
@@ -139,7 +130,6 @@ class SetValue(initialValues: Set<String> = setOf()) : StoreCollection<String> {
 
     fun toSet(): Set<String> = set.toSet()
 
-    override val type: ValueType = ValueType.SET
     override fun clone(): SetValue = SetValue(set.toSet())
 
     override val size get() = set.size
@@ -170,7 +160,6 @@ class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreCollecti
 
     fun toMap(): Map<String, StoreValue> = map.mapValues { it.value.clone() }
 
-    override val type: ValueType = ValueType.MAP
     override fun clone(): MapValue = MapValue(map)
 
     override val size get() = map.size

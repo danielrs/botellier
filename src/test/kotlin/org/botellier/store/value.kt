@@ -5,24 +5,14 @@ import org.junit.Test
 
 class StoreValueTest {
     @Test
-    fun typesAreWhatIsExpected() {
-        Assert.assertEquals(IntValue(1).type, ValueType.INT)
-        Assert.assertEquals(FloatValue(1.0).type, ValueType.FLOAT)
-        Assert.assertEquals(StringValue("").type, ValueType.STRING)
-        Assert.assertEquals(SetValue(setOf()).type, ValueType.SET)
-        Assert.assertEquals(ListValue(listOf()).type, ValueType.LIST)
-        Assert.assertEquals(MapValue(mapOf()).type, ValueType.MAP)
-    }
-
-    @Test
     fun builtinConversionsWork() {
-        Assert.assertEquals(1.toValue().type, ValueType.INT)
-        Assert.assertEquals(1.0f.toValue().type, ValueType.FLOAT)
-        Assert.assertEquals(1.0.toValue().type, ValueType.FLOAT)
-        Assert.assertEquals("".toValue().type, ValueType.STRING)
-        Assert.assertEquals(listOf(1, 2, 3).map(Int::toValue).toValue().type, ValueType.LIST)
-        Assert.assertEquals(setOf("one").toValue().type, ValueType.SET)
-        Assert.assertEquals(mapOf("one" to 1).mapValues { it.value.toValue() }.toValue().type, ValueType.MAP)
+        Assert.assertTrue(1.toValue() is IntValue)
+        Assert.assertTrue(1.0f.toValue() is FloatValue)
+        Assert.assertTrue(1.0.toValue() is FloatValue)
+        Assert.assertTrue("".toValue() is StringValue)
+        Assert.assertTrue(listOf(1, 2, 3).map(Int::toValue).toValue() is ListValue)
+        Assert.assertTrue(setOf("one").toValue() is SetValue)
+        Assert.assertTrue(mapOf("one" to 1.toValue()).toValue() is MapValue)
     }
 
     @Test
