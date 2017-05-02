@@ -11,7 +11,7 @@ class CParameter(private val command: Command, private val property: KMutablePro
         return property.getter.call(command)
     }
 
-    fun set(value: Any) {
+    fun set(value: CValue) {
         property.setter.call(command, value)
     }
 

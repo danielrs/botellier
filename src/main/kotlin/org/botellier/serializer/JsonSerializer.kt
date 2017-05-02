@@ -2,7 +2,7 @@ package org.botellier.serializer
 
 import org.botellier.store.*
 
-class JsonSerializer(override val value: StoreValue,
+class JsonSerializer(override val value: StoreType,
                   var pretty: Boolean = true,
                   var indent: String = "    ") : Serializer {
 
@@ -14,7 +14,7 @@ class JsonSerializer(override val value: StoreValue,
         return builder.toString()
     }
 
-    private fun render(builder: StringBuilder, indent: String, value: StoreValue) {
+    private fun render(builder: StringBuilder, indent: String, value: StoreType) {
         when (value) {
             is IntValue -> builder.append(value.value)
             is FloatValue -> builder.append(value.value)
@@ -25,7 +25,7 @@ class JsonSerializer(override val value: StoreValue,
         }
     }
 
-    private fun renderList(builder: StringBuilder, indent: String, list: Iterable<StoreValue>) {
+    private fun renderList(builder: StringBuilder, indent: String, list: Iterable<StorePrimitive>) {
         builder.append('[')
         val it = list.iterator()
         while (it.hasNext()) {
@@ -62,5 +62,5 @@ class JsonSerializer(override val value: StoreValue,
 }
 
 // Extensions.
-fun StoreValue.toJson(pretty: Boolean = true, indent: String = "    "): String =
+fun StoreType.toJson(pretty: Boolean = true, indent: String = "    "): String =
         JsonSerializer(this, pretty, indent).print()

@@ -4,25 +4,6 @@ import org.junit.Assert
 import org.junit.Test
 
 class LexerTest {
-    fun intToken(token: Lexer.Token, value: Int): Boolean {
-        return token is Lexer.IntToken && token.value == value
-    }
-
-    fun floatToken(token: Lexer.Token, value: Double): Boolean {
-        return token is Lexer.FloatToken && token.value == value
-    }
-
-    fun stringToken(token: Lexer.Token, value: String): Boolean {
-        return token is Lexer.StringToken && token.value == value
-    }
-
-    fun assertTokens(tokens: List<Lexer.Token>, expected: List<(Lexer.Token) -> Boolean>) {
-        Assert.assertEquals(tokens.size, expected.size)
-        for (i in tokens.indices) {
-            Assert.assertTrue(expected[i](tokens[i]))
-        }
-    }
-
     @Test
     fun singleString() {
         val expected = listOf<(Lexer.Token) -> Boolean>(
@@ -95,5 +76,28 @@ class LexerTest {
                 { intToken(it, 10) }
         )
         assertTokens(Lexer("*5\r\n$4\r\nHSET\r\n$1\r\na\r\n$4\r\n10.1\r\n$1\r\nb\r\n$2\r\n10\r\n").lex(), expected)
+    }
+
+    /**
+     * Utilities.
+     */
+
+    private fun intToken(token: Lexer.Token, value: Int): Boolean {
+        return token is Lexer.IntToken && token.value == value
+    }
+
+    private fun floatToken(token: Lexer.Token, value: Double): Boolean {
+        return token is Lexer.FloatToken && token.value == value
+    }
+
+    private fun stringToken(token: Lexer.Token, value: String): Boolean {
+        return token is Lexer.StringToken && token.value == value
+    }
+
+    private fun assertTokens(tokens: List<Lexer.Token>, expected: List<(Lexer.Token) -> Boolean>) {
+        Assert.assertEquals(tokens.size, expected.size)
+        for (i in tokens.indices) {
+            Assert.assertTrue(expected[i](tokens[i]))
+        }
     }
 }

@@ -1,7 +1,7 @@
 package org.botellier
 
-import org.botellier.protocol.toByteArray
 import org.botellier.store.*
+import org.botellier.serializer.toByteArray
 import org.botellier.serializer.toJson
 
 fun main(args: Array<String>) {
@@ -14,16 +14,12 @@ fun main(args: Array<String>) {
     store.set("numbers", listOf(4, 5, 6).map(Int::toValue).toValue())
     store.set("strings", listOf("Four", "Five", "Six").map(String::toValue).toValue())
     store.set("used", setOf("shoes", "pants").toValue())
-    store.set("hashes", mapOf("1" to "one", "2" to "two", "3" to "three").mapValues { it.value.toValue() }.toValue())
 
     val mixedList = listOf(
             IntValue(1),
             FloatValue(2.0),
-            StringValue("Three"),
-            listOf(IntValue(4), FloatValue(5.0), StringValue("Six")).toValue()
+            StringValue("Three")
     )
-
-    store.set("mixed", mixedList.toValue())
 
     println("Store: ${store.toJson()}")
 

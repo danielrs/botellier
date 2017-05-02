@@ -1,6 +1,6 @@
 package org.botellier.command
 
-import org.botellier.protocol.toByteArray
+import org.botellier.serializer.toByteArray
 import org.botellier.store.toValue
 
 import org.junit.Assert

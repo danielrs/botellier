@@ -16,9 +16,9 @@ class CommandParser {
                         parse(tokens.drop(1)) {
                             for (p in command.parameters) {
                                 when {
-                                    p.isInt -> p.set(CValue.primitive(int()))
-                                    p.isFloat -> p.set(CValue.primitive(float()))
-                                    p.isString -> p.set(CValue.primitive(string()))
+                                    p.isInt -> p.set(CValue.Primitive.Int(int()))
+                                    p.isFloat -> p.set(CValue.Primitive.Float(float()))
+                                    p.isString -> p.set(CValue.Primitive.String(string()))
                                     p.isAny -> p.set(CValue.primitive(any()))
                                 }
                             }
