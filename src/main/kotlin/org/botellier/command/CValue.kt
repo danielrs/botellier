@@ -33,7 +33,7 @@ sealed class CValue {
     override final fun toString(): String {
         return when(this) {
             is Primitive.Int -> "${this.value}:Int"
-            is Primitive.Float -> "${this.value}:Int"
+            is Primitive.Float -> "${this.value}:Float"
             is Primitive.String -> "\"${this.value}\":String"
             is Primitive.Any -> "Any:Any"
             is Array.Int -> "${this.value}:IntArray"

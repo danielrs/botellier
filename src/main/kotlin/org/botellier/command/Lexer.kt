@@ -57,7 +57,7 @@ class Lexer(val string: String) {
             }
         }
         else {
-            throw LexerException(index, "Expected '$prefix'.")
+            throw LexerException(index, "Expected '$prefix'")
         }
     }
 
@@ -66,12 +66,16 @@ class Lexer(val string: String) {
         val carriageReturn = string.getOrNull(endIndex + 1)
         val lineFeed = string.getOrNull(endIndex + 2)
 
-        if (carriageReturn != '\r' || lineFeed != '\n') {
-            throw LexerException(index, "Bulk string of length $length must end with '\\r\\n'.")
-        }
-
         if (index > endIndex) {
             throw LexerException(index, "Bulk strings must have positive length.")
+        }
+
+        if (endIndex > string.length - 1) {
+            throw LexerException(index, "Specified length $length overflows string.")
+        }
+
+        if (carriageReturn != '\r' || lineFeed != '\n') {
+            throw LexerException(index, "Bulk string of length $length must end with '\\r\\n'.")
         }
 
         val substring = string.substring(index..endIndex)
@@ -81,7 +85,7 @@ class Lexer(val string: String) {
 
     private fun string(): String {
         var endIndex = index
-        while (string[endIndex] != '\r' && endIndex < string.length) {
+        while (endIndex < string.length && string[endIndex] != '\r') {
             endIndex++
         }
         return bulkString(endIndex - index)

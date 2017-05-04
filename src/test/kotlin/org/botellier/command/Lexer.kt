@@ -78,6 +78,21 @@ class LexerTest {
         assertTokens(Lexer("*5\r\n$4\r\nHSET\r\n$1\r\na\r\n$4\r\n10.1\r\n$1\r\nb\r\n$2\r\n10\r\n").lex(), expected)
     }
 
+    @Test
+    fun emptyString() {
+        val tokens = Lexer("").lex()
+        Assert.assertEquals(0, tokens.size)
+    }
+
+    @Test
+    fun incompleteLength() {
+        try {
+            val tokens = Lexer("$\r\n").lex()
+            Assert.fail("Invalid length passed")
+        }
+        catch (_: Throwable) {}
+    }
+
     /**
      * Utilities.
      */
