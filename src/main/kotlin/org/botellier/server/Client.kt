@@ -11,34 +11,38 @@ import java.net.SocketException
 import java.net.SocketTimeoutException
 
 /**
+ * Container class for client information.
+ */
+data class Client(val socket: Socket, var db: String? = null)
+
+/**
  * Class for handling a new client connection. It reads the input,
  * tries to parse a command, and then sends back the constructed
  * request using the provided callback.
  * @property db the current db the client is connected to.
  */
-class ClientHandler(val socket: Socket, val callback: (Request) -> Unit) : Runnable {
-    var db: String? = null
+class ClientHandler(val client: Client, val dispatch: (Client, Request) -> Unit) : Runnable {
     var readTimeout: Int = 1000
 
     override fun run() {
-        println("Handling client ${socket.inetAddress.hostAddress}")
+        println("Handling client ${client.socket.inetAddress.hostAddress}")
         loop@while (true) {
             try {
-                val stream = socket.waitInput()
+                val stream = client.socket.waitInput()
 
-                socket.soTimeout = readTimeout
+                client.socket.soTimeout = readTimeout
                 val tokens = Lexer(stream).lex()
-                socket.soTimeout = 0
+                client.socket.soTimeout = 0
 
                 val command = CommandParser.parse(tokens)
-                callback(Request(socket, command))
+                dispatch(client, Request(client, command))
             }
             catch (e: SocketException) {
                 break@loop
             }
             catch (e: Throwable) {
                 println(e.message)
-                val writer = socket.getOutputStream().bufferedWriter()
+                val writer = client.socket.getOutputStream().bufferedWriter()
                 when (e) {
                     // Exception for Lexer waiting too much.
                     is SocketTimeoutException ->
@@ -54,7 +58,7 @@ class ClientHandler(val socket: Socket, val callback: (Request) -> Unit) : Runna
                         writer.write("-COMMANDERR ${e.message}\r\n")
                     // Exception that we don't know how to handle.
                     else -> {
-                        socket.close()
+                        client.socket.close()
                         break@loop
                     }
                 }

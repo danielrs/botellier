@@ -1,12 +1,10 @@
 package org.botellier.server
 
-import org.botellier.store.Store
 import java.io.BufferedWriter
 import java.io.OutputStreamWriter
 import java.net.ServerSocket
 
 class Server(port: Int = 6679) {
-    val store: Store = Store()
     val port: Int = port
 
     fun start() {
@@ -14,13 +12,13 @@ class Server(port: Int = 6679) {
         println("Server running on port $port.")
 
         while (true) {
-            val clientSocket = serverSocket.accept()
-            println("Client connected: ${clientSocket.inetAddress.hostAddress}")
+            val client = Client(serverSocket.accept())
+            println("Client connected: ${client.socket.inetAddress.hostAddress}")
 
-            Thread(ClientHandler(clientSocket, {
-                println("Command received: $it")
-                val writer = BufferedWriter(OutputStreamWriter(clientSocket.getOutputStream()))
-                writer.write("$it\n")
+            Thread(ClientHandler(client, { client, request ->
+                println("Command received: ${request.command}")
+                val writer = BufferedWriter(OutputStreamWriter(client.socket.getOutputStream()))
+                writer.write("$request\n")
                 writer.flush()
 //                writer.close()
             })).start()

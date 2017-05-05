@@ -121,7 +121,12 @@ class Lexer(bufferedInputStream: BufferedInputStream) {
         this.mark(1)
         val byte = this.read()
         this.reset()
-        return byte
+        if (byte != -1) {
+            return byte
+        }
+        else {
+            throw LexerException(index, "Trying to peek end of input")
+        }
     }
 
     private fun BufferedInputStream.readBytes(length: Int): ByteArray {
@@ -165,5 +170,6 @@ class Lexer(bufferedInputStream: BufferedInputStream) {
     data class StringToken(val value: String) : PrimitiveToken
     data class ListToken(val value: List<PrimitiveToken>) : Token
 
+    // Exceptions.
     class LexerException(index: Int, message: String?) : Throwable("(At [$index]) $message")
 }
