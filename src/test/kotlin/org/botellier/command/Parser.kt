@@ -43,7 +43,7 @@ class ParserTest {
 
     @Test
     fun parseList() {
-        val message = "$3\r\none\r\n$3\r\ntwo\r\n$5\r\nthree\r\n"
+        val message = "*3\r\n$3\r\none\r\n$3\r\ntwo\r\n$5\r\nthree\r\n"
         val values = mutableListOf<String>()
 
         parse(message) {
@@ -52,12 +52,12 @@ class ParserTest {
             }
         }
 
-        Assert.assertEquals(values, listOf("one", "two", "three"))
+        Assert.assertEquals(listOf("one", "two", "three"), values)
     }
 
     @Test
     fun parseMixed() {
-        val message = "$3\r\n100\r\n$7\r\n200.200\r\n$13\r\nthree-hundred\r\n"
+        val message = "*3\r\n$3\r\n100\r\n$7\r\n200.200\r\n$13\r\nthree-hundred\r\n"
         var int = 0
         var float = 0.0
         var string = ""

@@ -10,7 +10,17 @@ class LexerTest {
                 { intToken(it, 1) }
         )
         val result = Lexer("*1\r\n$1\r\n1\r\n").lex()
-        println(result)
+        assertTokens(result, expected)
+    }
+
+    @Test
+    fun specialString() {
+        val string = "特è"
+        val byteCount = string.toByteArray().size
+        val expected = listOf<(Lexer.Token) -> Boolean>(
+                { stringToken(it, string) }
+        )
+        val result = Lexer("*1\r\n$$byteCount\r\n$string\r\n").lex()
         assertTokens(result, expected)
     }
 
@@ -80,8 +90,11 @@ class LexerTest {
 
     @Test
     fun emptyString() {
-        val tokens = Lexer("").lex()
-        Assert.assertEquals(0, tokens.size)
+        try {
+            Lexer("").lex()
+            Assert.fail("Passed empty string.")
+        }
+        catch (_: Throwable) {}
     }
 
     @Test

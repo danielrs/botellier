@@ -3,11 +3,12 @@ package org.botellier.server
 import org.botellier.command.CommandParser
 import org.botellier.command.Lexer
 import org.botellier.command.Parser
-import java.io.BufferedReader
 import java.io.BufferedWriter
-import java.io.InputStreamReader
+import java.io.IOException
 import java.io.OutputStreamWriter
 import java.net.Socket
+import java.net.SocketException
+import java.net.SocketTimeoutException
 
 /**
  * Class for handling a new client connection. It reads the input,
@@ -17,27 +18,48 @@ import java.net.Socket
  */
 class ClientHandler(val socket: Socket, val callback: (Request) -> Unit) : Runnable {
     var db: String? = null
+    var readTimeout: Int = 1000
+
     override fun run() {
         println("Handling client ${socket.inetAddress.hostAddress}")
-        try {
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
-            var text = reader.readText()
-            val command = CommandParser.parse(Lexer(text).lex())
-            callback(Request(socket, command))
+        loop@while (true) {
+            try {
+                val stream = socket.waitInput()
 
-        }
-        catch (e: Throwable) {
-            println(e.message)
-            when (e) {
-                is Parser.ParserException,
-                is Lexer.LexerException,
-                is CommandParser.InvalidCommandException-> {
-                    val write = BufferedWriter(OutputStreamWriter(socket.getOutputStream()))
-                    write.write("-Command not recognized\r\n")
-                    write.flush()
-                }
+                socket.soTimeout = readTimeout
+                val tokens = Lexer(stream).lex()
+                socket.soTimeout = 0
+
+                val command = CommandParser.parse(tokens)
+                callback(Request(socket, command))
             }
-            socket.close()
+            catch (e: SocketException) {
+                break@loop
+            }
+            catch (e: Throwable) {
+                println(e.message)
+                val writer = socket.getOutputStream().bufferedWriter()
+                when (e) {
+                    // Exception for Lexer waiting too much.
+                    is SocketTimeoutException ->
+                        writer.write("-ERR Command read timeout\r\n")
+                    // Exception regarding the serialized data.
+                    is Lexer.LexerException ->
+                        writer.write("-COMMANDERR Unable to read command\r\n")
+                    // Exception regarding the structure of the data.
+                    is Parser.ParserException ->
+                        writer.write("-COMMANDERR Unable to parse command\r\n")
+                    // Exception regarding unknown command.
+                    is CommandParser.UnknownCommandException ->
+                        writer.write("-COMMANDERR ${e.message}\r\n")
+                    // Exception that we don't know how to handle.
+                    else -> {
+                        socket.close()
+                        break@loop
+                    }
+                }
+                writer.flush()
+            }
         }
     }
 }

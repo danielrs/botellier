@@ -29,11 +29,11 @@ class CommandParser {
                 }
             }
 
-            throw InvalidCommandException(tokens)
+            throw UnknownCommandException(firstToken.toString())
         }
     }
 
    // Exceptions.
-   class InvalidCommandException(tokens: List<Lexer.Token>)
-       : Throwable("Command not recognized from given tokens: $tokens.")
+   class UnknownCommandException(command: String)
+       : Throwable("Command not recognized: $command")
 }

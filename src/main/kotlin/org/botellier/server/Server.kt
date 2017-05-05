@@ -17,13 +17,13 @@ class Server(port: Int = 6679) {
             val clientSocket = serverSocket.accept()
             println("Client connected: ${clientSocket.inetAddress.hostAddress}")
 
-            ClientHandler(clientSocket, {
+            Thread(ClientHandler(clientSocket, {
                 println("Command received: $it")
                 val writer = BufferedWriter(OutputStreamWriter(clientSocket.getOutputStream()))
                 writer.write("$it\n")
                 writer.flush()
-                writer.close()
-            }).run()
+//                writer.close()
+            })).start()
         }
     }
 }
