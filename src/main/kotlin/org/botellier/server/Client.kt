@@ -1,5 +1,6 @@
 package org.botellier.server
 
+import org.botellier.command.Command
 import org.botellier.command.CommandParser
 import org.botellier.command.Lexer
 import org.botellier.command.Parser
@@ -21,7 +22,7 @@ data class Client(val socket: Socket, var db: String? = null)
  * request using the provided callback.
  * @property db the current db the client is connected to.
  */
-class ClientHandler(val client: Client, val dispatch: (Client, Request) -> Unit) : Runnable {
+class ClientHandler(val client: Client, val dispatcher: RequestDispatcher) : Runnable {
     var readTimeout: Int = 1000
 
     override fun run() {
@@ -35,7 +36,7 @@ class ClientHandler(val client: Client, val dispatch: (Client, Request) -> Unit)
                 client.socket.soTimeout = 0
 
                 val command = CommandParser.parse(tokens)
-                dispatch(client, Request(client, command))
+                dispatcher.dispatch(Request(client, command))
             }
             catch (e: SocketException) {
                 break@loop
@@ -47,15 +48,19 @@ class ClientHandler(val client: Client, val dispatch: (Client, Request) -> Unit)
                     // Exception for Lexer waiting too much.
                     is SocketTimeoutException ->
                         writer.write("-ERR Command read timeout\r\n")
+
                     // Exception regarding the serialized data.
                     is Lexer.LexerException ->
                         writer.write("-COMMANDERR Unable to read command\r\n")
+
                     // Exception regarding the structure of the data.
                     is Parser.ParserException ->
                         writer.write("-COMMANDERR Unable to parse command\r\n")
+
                     // Exception regarding unknown command.
                     is CommandParser.UnknownCommandException ->
                         writer.write("-COMMANDERR ${e.message}\r\n")
+
                     // Exception that we don't know how to handle.
                     else -> {
                         client.socket.close()

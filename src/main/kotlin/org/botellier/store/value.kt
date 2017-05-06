@@ -19,6 +19,8 @@ interface StorePrimitive : StoreValue {
     override fun clone(): StorePrimitive
 }
 
+interface StoreNumber : StorePrimitive
+
 interface StoreCollection<out T> : StoreValue, Iterable<T> {
     val size: Int
     override fun clone(): StoreCollection<T>
@@ -47,12 +49,12 @@ where T : Comparable<T> {
     }
 }
 
-class IntValue(initialValue: Int = 0) : StorePrimitive, PrimitiveValue<Int>(initialValue) {
+class IntValue(initialValue: Int = 0) : StoreNumber, PrimitiveValue<Int>(initialValue) {
     override fun clone(): IntValue = IntValue(value)
     override fun toString(): String = value.toString()
 }
 
-class FloatValue(initialValue: Double = 0.0) : StorePrimitive, PrimitiveValue<Double>(initialValue) {
+class FloatValue(initialValue: Double = 0.0) : StoreNumber, PrimitiveValue<Double>(initialValue) {
     override fun clone(): FloatValue = FloatValue(value)
     override fun toString(): String = value.toString()
 }

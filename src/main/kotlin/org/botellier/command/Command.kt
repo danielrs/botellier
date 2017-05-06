@@ -1,6 +1,9 @@
 package org.botellier.command
 
+import org.botellier.store.Store
+import org.botellier.store.StoreValue
 import kotlin.reflect.KMutableProperty
+import kotlin.reflect.KType
 import kotlin.reflect.full.declaredMemberProperties
 
 @Target(AnnotationTarget.CLASS)
@@ -43,6 +46,10 @@ abstract class Command {
                 }
     }
 
+    open fun execute(store: Store): StoreValue? {
+        throw CommandDisabledException(name)
+    }
+
     // Values for initializing parameters in child classes.
     protected val intValue = CValue.Primitive.Int(0)
     protected val floatValue = CValue.Primitive.Float(0.0)
@@ -69,9 +76,15 @@ abstract class Command {
     }
 
     // Exceptions.
+    class CommandDisabledException(name: String)
+        : Throwable("Command '$name' is current disabled.")
+
     class InvalidCommandDeclarationException
         : Throwable("Command must declare a name using the @WithCommand annotation")
 
     class InvalidPropertyException(className: String, paramName: String, message: String)
         : Throwable("Property '$paramName' from [$className]: $message")
+
+    class WrongTypeException(key: String, currentType: String)
+        : Throwable("Invalid operation on $key of type '$currentType'.")
 }

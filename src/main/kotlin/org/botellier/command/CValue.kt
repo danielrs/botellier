@@ -1,5 +1,17 @@
 package org.botellier.command
 
+import org.botellier.store.StoreValue
+import org.botellier.store.toValue
+
+fun CValue.Primitive.toValue(): StoreValue {
+    return when (this) {
+        is CValue.Primitive.Int -> this.value.toValue()
+        is CValue.Primitive.Float -> this.value.toValue()
+        is CValue.Primitive.String -> this.value.toValue()
+        is CValue.Primitive.Any -> throw CValue.InvalidPrimitiveException(this)
+    }
+}
+
 // Types allowed in command parameters.
 sealed class CValue {
     companion object {

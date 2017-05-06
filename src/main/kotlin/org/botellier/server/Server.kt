@@ -1,11 +1,18 @@
 package org.botellier.server
 
+import org.botellier.store.MapValue
+import org.botellier.store.Store
 import java.io.BufferedWriter
 import java.io.OutputStreamWriter
 import java.net.ServerSocket
+import java.util.concurrent.Executor
 
 class Server(port: Int = 6679) {
-    val port: Int = port
+    val port = port
+    val store = Store()
+
+    private val executor = HandlerExecutor()
+    private val dispatcher = RequestDispatcher(this)
 
     fun start() {
         val serverSocket = ServerSocket(port)
@@ -14,14 +21,14 @@ class Server(port: Int = 6679) {
         while (true) {
             val client = Client(serverSocket.accept())
             println("Client connected: ${client.socket.inetAddress.hostAddress}")
+            executor.execute(ClientHandler(client, dispatcher))
+        }
+    }
 
-            Thread(ClientHandler(client, { client, request ->
-                println("Command received: ${request.command}")
-                val writer = BufferedWriter(OutputStreamWriter(client.socket.getOutputStream()))
-                writer.write("$request\n")
-                writer.flush()
-//                writer.close()
-            })).start()
+    // Inner classes.
+    class HandlerExecutor : Executor {
+        override fun execute(command: Runnable?) {
+            Thread(command).start()
         }
     }
 }
