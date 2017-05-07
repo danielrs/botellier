@@ -7,18 +7,25 @@ data class Request(val client: Client, val command: Command)
 
 class RequestDispatcher(val server: Server) {
     fun dispatch(request: Request) {
+        val byteWriter = request.client.socket.getOutputStream()
+        val writer = byteWriter.writer()
+
         try {
-            val writer = request.client.socket.getOutputStream()
             val result = request.command.execute(server.store)
-            if (result != null) {
-                writer.write(result.toByteArray())
-            }
+            println(result)
+            byteWriter.write(result.toByteArray())
+        }
+        catch (e: Command.WrongTypeException) {
+            writer.write("-WRONGTYPE ${e.message}\r\n")
         }
         catch (e: Command.CommandDisabledException) {
-            val writer = request.client.socket.getOutputStream().writer()
             writer.write("-COMMANDERR ${e.message}\r\n")
-            writer.flush()
         }
+        catch (e: Throwable) {
+            writer.write("-ERROR ${e.message}\r\n")
+        }
+
+        writer.flush()
     }
 
 }

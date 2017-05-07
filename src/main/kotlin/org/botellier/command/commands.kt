@@ -13,6 +13,7 @@ val COMMANDS = arrayOf(
         IncrCommand::class,
         IncrbyCommand::class,
         IncrbyfloatCommand::class,
+        MSetCommand::class,
         SetCommand::class,
         StrlenCommand::class
 ).map { it.createInstance().name to it }.toMap()
@@ -142,6 +143,26 @@ class IncrbyfloatCommand : Command() {
             }
             store.get(key.value)
         }
+    }
+}
+
+@WithCommand("MSET")
+class MSetCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    @field:Parameter(1)
+    var value = anyValue
+
+    @field:Parameter(2)
+    var rest = pairArrayValue
+
+    override fun execute(store: Store): StoreValue? {
+        store.set(key.value, value.toValue())
+        for ((key, value) in rest.value) {
+            store.set(key.value, value.toValue())
+        }
+        return StringValue("OK")
     }
 }
 

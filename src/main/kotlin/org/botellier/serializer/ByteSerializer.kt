@@ -7,14 +7,14 @@ private val CR: Byte = '\r'.toByte()
 private val LF: Byte = '\n'.toByte()
 private val NEWLINE: ByteArray = byteArrayOf(CR, LF)
 
-class ByteSerializer(override val value: StoreType) : Serializer {
+class ByteSerializer(override val value: StoreType?) : Serializer {
     override fun serialize(): ByteArray {
         val bos = ByteArrayOutputStream()
         render(bos, value)
         return bos.toByteArray()
     }
 
-    private fun render(bos: ByteArrayOutputStream, value: StoreType) {
+    private fun render(bos: ByteArrayOutputStream, value: StoreType?) {
         when (value) {
             is IntValue -> renderInt(bos, value)
             is FloatValue -> renderFloat(bos, value)
@@ -22,6 +22,7 @@ class ByteSerializer(override val value: StoreType) : Serializer {
             is ListValue -> renderList(bos, value)
             is SetValue -> renderSet(bos, value)
             is MapValue -> renderMap(bos, value)
+            else -> renderNil(bos)
         }
     }
 
@@ -75,7 +76,12 @@ class ByteSerializer(override val value: StoreType) : Serializer {
             render(bos, value)
         }
     }
+
+    private fun renderNil(bos: ByteArrayOutputStream) {
+        bos.write("$-1".toByteArray())
+        bos.write(NEWLINE)
+    }
 }
 
 // Extensions.
-fun StoreType.toByteArray(): ByteArray = ByteSerializer(this).serialize()
+fun StoreType?.toByteArray(): ByteArray = ByteSerializer(this).serialize()

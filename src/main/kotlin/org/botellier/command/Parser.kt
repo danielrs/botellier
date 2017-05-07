@@ -23,7 +23,10 @@ annotation class ParserMarker
 
 @ParserMarker
 open class Parser(val tokens: List<Lexer.Token>) {
-    private var index: Int = 0
+    var index: Int = 0
+        private set
+        public get
+
 
     fun parse(init: Parser.() -> Unit) {
         index = 0
@@ -67,7 +70,6 @@ open class Parser(val tokens: List<Lexer.Token>) {
         }
     }
 
-
     fun string(expected: String? = null): String {
         val token = token()
         if (token is Lexer.StringToken) {
@@ -105,10 +107,39 @@ open class Parser(val tokens: List<Lexer.Token>) {
             return tokens.get(index++)
         }
         else {
-            throw ParserException("Unexpected end of input.")
+            throw UnexpectedEOFException()
         }
     }
 
+    // Special combinators.
+
+    inline fun <reified T> many(which: () -> T): Array<T> {
+        val array = arrayListOf<T>()
+        var prev: Int
+        while (true) {
+            try {
+                prev = index
+                array.add(which())
+            }
+            catch (e: UnexpectedEOFException) {
+                break
+            }
+            if (prev == index) {
+                throw ParserException("Combinator function must consume input.")
+            }
+        }
+        return array.toTypedArray()
+    }
+
+    inline fun <reified T> many1(which: () -> T): Array<T> {
+        val array = many(which)
+        if (array.isEmpty()) {
+            throw UnexpectedEOFException()
+        }
+        return array
+    }
+
     // Exceptions.
-    class ParserException(message: String) : Throwable(message)
+    open class ParserException(message: String) : Throwable(message)
+    class UnexpectedEOFException : ParserException("Unexpected end of input.")
 }

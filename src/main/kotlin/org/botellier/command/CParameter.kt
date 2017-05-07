@@ -26,5 +26,6 @@ class CParameter(private val command: Command, private val property: KMutablePro
     val isIntArray: Boolean = property.returnType.isSubtypeOf(CValue.Array.Int::class.createType())
     val isFloatArray: Boolean = property.returnType.isSubtypeOf(CValue.Array.Float::class.createType())
     val isStringArray: Boolean = property.returnType.isSubtypeOf(CValue.Array.String::class.createType())
+    val isPairArray: Boolean = property.returnType.isSubtypeOf(CValue.Array.Pair::class.createType())
     val isAnyArray: Boolean = property.returnType.isSubtypeOf(CValue.Array::class.createType())
 }

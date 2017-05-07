@@ -56,10 +56,11 @@ abstract class Command {
     protected val stringValue = CValue.Primitive.String("")
     protected val anyValue: CValue.Primitive = CValue.Primitive.Any()
 
-    protected val intArrayValue = CValue.Array.Int(emptyArray())
-    protected val floatArrayValue = CValue.Array.Float(emptyArray())
-    protected val stringArrayValue = CValue.Array.String(emptyArray())
-    protected val anyArrayValue = CValue.Array.Any(emptyArray())
+    protected val intArrayValue = CValue.Array.Int(emptyList())
+    protected val floatArrayValue = CValue.Array.Float(emptyList())
+    protected val stringArrayValue = CValue.Array.String(emptyList())
+    protected val anyArrayValue = CValue.Array.Any(emptyList())
+    protected val pairArrayValue = CValue.Array.Pair(emptyList())
 
     // Other.
     override fun toString(): String {
@@ -86,5 +87,5 @@ abstract class Command {
         : Throwable("Property '$paramName' from [$className]: $message")
 
     class WrongTypeException(key: String, currentType: String)
-        : Throwable("Invalid operation on $key of type '$currentType'.")
+        : Throwable("Invalid operation on '$key' of type '$currentType'.")
 }
