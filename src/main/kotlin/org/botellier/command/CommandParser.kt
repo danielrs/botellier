@@ -22,31 +22,22 @@ class CommandParser {
                                     p.isAny -> p.set(CValue.primitive(any()))
                                     p.isIntArray -> {
                                         p.set(CValue.Array.Int(
-                                                many(this::int).map(CValue.Primitive::Int)
+                                                many { CValue.Primitive.Int(int()) }
                                         ))
                                     }
                                     p.isFloatArray -> {
                                         p.set(CValue.Array.Float(
-                                                many(this::float).map(CValue.Primitive::Float)
+                                                many { CValue.Primitive.Float(float()) }
                                         ))
                                     }
                                     p.isStringArray -> {
                                         p.set(CValue.Array.String(
-                                                many { string() }.map(CValue.Primitive::String)
+                                                many { CValue.Primitive.String(string()) }
                                         ))
                                     }
                                     p.isPairArray -> {
                                         p.set(CValue.Array.Pair(
-                                                many {
-                                                    val key = string()
-                                                    val value = any()
-                                                    Pair(key, value)
-                                                }.map { (key, value) ->
-                                                    CValue.Pair(
-                                                            CValue.Primitive.String(key),
-                                                            CValue.primitive(value)
-                                                    )
-                                                }
+                                                many { CValue.Pair(string(), CValue.primitive(any())) }
                                         ))
                                     }
                                     p.isAnyArray -> {

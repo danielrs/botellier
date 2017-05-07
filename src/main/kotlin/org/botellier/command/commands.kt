@@ -13,6 +13,7 @@ val COMMANDS = arrayOf(
         IncrCommand::class,
         IncrbyCommand::class,
         IncrbyfloatCommand::class,
+        MGetCommand::class,
         MSetCommand::class,
         SetCommand::class,
         StrlenCommand::class
@@ -30,8 +31,8 @@ class AppendCommand : Command() {
     @field:Parameter(1)
     var value = anyValue
 
-    override fun execute(store: Store): StoreValue? {
-        return withType<StringValue>(store, key.value) {
+    override fun execute(store: Store): StoreValue {
+        return withValue<StringValue>(store, key.value) {
             val builder = StringBuilder()
             if (it != null) {
                 builder.append(it.value)
@@ -50,7 +51,7 @@ class DecrCommand : Command() {
     @field:Parameter(0)
     var key = stringValue
 
-    override fun execute(store: Store): StoreValue? {
+    override fun execute(store: Store): StoreValue {
         val decrby = DecrbyCommand()
         decrby.key = key
         decrby.decrement = CValue.Primitive.Int(1)
@@ -66,7 +67,7 @@ class DecrbyCommand : Command() {
     @field:Parameter(1)
     var decrement = intValue
 
-    override fun execute(store: Store): StoreValue? {
+    override fun execute(store: Store): StoreValue {
         val incrby = IncrbyCommand()
         incrby.key = key
         incrby.increment = CValue.Primitive.Int(-decrement.value)
@@ -78,7 +79,7 @@ class DecrbyCommand : Command() {
 class GetCommand : Command() {
     @field:Parameter(0)
     var key = stringValue
-    override fun execute(store: Store): StoreValue? = store.get(key.value)
+    override fun execute(store: Store): StoreValue = store.get(key.value)
 }
 
 @WithCommand("INCR")
@@ -86,7 +87,7 @@ class IncrCommand : Command() {
     @field:Parameter(0)
     var key = stringValue
 
-    override fun execute(store: Store): StoreValue? {
+    override fun execute(store: Store): StoreValue {
         val incrby = IncrbyCommand()
         incrby.key = key
         incrby.increment = CValue.Primitive.Int(1)
@@ -102,20 +103,15 @@ class IncrbyCommand : Command() {
     @field:Parameter(1)
     var increment = intValue
 
-    override fun execute(store: Store): StoreValue? {
-        return withType<StoreNumber>(store, key.value) {
-            if (it == null) {
-                store.set(key.value, increment.value.toValue())
-            }
-            else {
-                when (it) {
-                    is IntValue ->
-                        store.set(key.value, (it.value + increment.value).toValue())
-                    is FloatValue ->
-                        store.set(key.value, (it.value + increment.value.toFloat()).toValue())
-                }
-            }
-            store.get(key.value)
+    override fun execute(store: Store): StoreValue {
+        return withValue<StoreNumber>(store, key.value) {
+            val value = when(it) {
+                is IntValue -> (it.value + increment.value).toValue()
+                is FloatValue -> (it.value + increment.value.toFloat()).toValue()
+                else -> increment.value.toValue()
+            } as StorePrimitive
+            store.set(key.value, value)
+            value
         }
     }
 }
@@ -128,21 +124,36 @@ class IncrbyfloatCommand : Command() {
     @field:Parameter(1)
     var increment = floatValue
 
-    override fun execute(store: Store): StoreValue? {
-        return withType<StoreNumber>(store, key.value) {
-            if (it == null) {
-                store.set(key.value, increment.value.toValue())
+    override fun execute(store: Store): StoreValue {
+        return withValue<StoreNumber>(store, key.value) {
+            val value = when(it) {
+                is IntValue -> (it.value.toFloat() + increment.value).toValue()
+                is FloatValue -> (it.value - increment.value).toValue()
+                else -> increment.value.toValue()
             }
-            else {
-                when (it) {
-                    is IntValue ->
-                        store.set(key.value, (it.value.toFloat() + increment.value).toValue())
-                    is FloatValue ->
-                        store.set(key.value, (it.value + increment.value).toValue())
-                }
-            }
-            store.get(key.value)
+            store.set(key.value, value)
+            value
         }
+    }
+}
+
+@WithCommand("MGET")
+class MGetCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    @field:Parameter(1)
+    var rest = stringArrayValue
+
+    override fun execute(store: Store): StoreValue {
+        val listValue = ListValue()
+
+        listValue.rpush(withPrimitive<StorePrimitive>(store, key.value) { it ?: NilValue() })
+        rest.value.map {
+            listValue.rpush(withPrimitive<StorePrimitive>(store, it.value) { it ?: NilValue() })
+        }
+
+        return listValue
     }
 }
 
@@ -157,10 +168,10 @@ class MSetCommand : Command() {
     @field:Parameter(2)
     var rest = pairArrayValue
 
-    override fun execute(store: Store): StoreValue? {
+    override fun execute(store: Store): StoreValue {
         store.set(key.value, value.toValue())
         for ((key, value) in rest.value) {
-            store.set(key.value, value.toValue())
+            store.set(key, value.toValue())
         }
         return StringValue("OK")
     }
@@ -174,7 +185,7 @@ class SetCommand : Command() {
     @field:Parameter(1)
     var value = anyValue
 
-    override fun execute(store: Store): StoreValue? {
+    override fun execute(store: Store): StoreValue {
         store.set(key.value, value.toValue())
         return StringValue("OK")
     }
@@ -185,8 +196,8 @@ class StrlenCommand : Command() {
     @field:Parameter(0)
     var key = stringValue
 
-    override fun execute(store: Store): StoreValue? {
-        return withType<StringValue>(store, key.value) {
+    override fun execute(store: Store): StoreValue {
+        return withValue<StringValue>(store, key.value) {
             if (it != null) {
                 IntValue(it.value.length)
             }
@@ -216,9 +227,9 @@ class StrlenCommand : Command() {
 //    }
 //}
 
-private inline fun <reified T> withType(store: Store, key: String, body: (T?) -> StoreValue?): StoreValue? {
+private inline fun <reified T, R> withType(store: Store, key: String, body: (T?) -> R): R {
     val value = store.get(key)
-    if (value != null) {
+    if (value !is NilValue) {
         if (value is T) {
             return body(value)
         }
@@ -227,6 +238,12 @@ private inline fun <reified T> withType(store: Store, key: String, body: (T?) ->
         }
     }
     else {
-        return body(value)
+        return body(null)
     }
 }
+
+private inline fun <reified T> withValue(store: Store, key: String, body: (T?) -> StoreValue)
+        = withType<T, StoreValue>(store, key, body)
+
+private inline fun <reified T> withPrimitive(store: Store, key: String, body: (T?) -> StorePrimitive)
+        = withType<T, StorePrimitive>(store, key, body)

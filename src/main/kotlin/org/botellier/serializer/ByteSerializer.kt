@@ -19,6 +19,7 @@ class ByteSerializer(override val value: StoreType?) : Serializer {
             is IntValue -> renderInt(bos, value)
             is FloatValue -> renderFloat(bos, value)
             is StringValue -> renderString(bos, value)
+            is NilValue -> renderNil(bos)
             is ListValue -> renderList(bos, value)
             is SetValue -> renderSet(bos, value)
             is MapValue -> renderMap(bos, value)

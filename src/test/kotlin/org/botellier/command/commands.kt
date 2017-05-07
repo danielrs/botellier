@@ -78,14 +78,28 @@ class CommandsTest {
     }
 
     @Test
+    fun mgetCommand() {
+        val store = Store()
+        val mget = MGetCommand()
+        store.set("key1", IntValue(1))
+        mget.key = CValue.Primitive.String("key0")
+        mget.rest = CValue.Array.String(listOf("key1", "key2").map(CValue.Primitive::String))
+
+        val list = mget.execute(store) as ListValue
+        Assert.assertEquals(NilValue(), list.get(0))
+        Assert.assertEquals(IntValue(1), list.get(1))
+        Assert.assertEquals(NilValue(), list.get(2))
+    }
+
+    @Test
     fun msetCommand() {
         val store = Store()
         val mset = MSetCommand()
         mset.key = CValue.Primitive.String("key0")
         mset.value = CValue.Primitive.Int(0)
         mset.rest = CValue.Array.Pair(listOf(
-                CValue.Pair(CValue.Primitive.String("key1"), CValue.Primitive.Float(1.0)),
-                CValue.Pair(CValue.Primitive.String("key2"), CValue.Primitive.String("two"))
+                CValue.Pair("key1", CValue.Primitive.Float(1.0)),
+                CValue.Pair("key2", CValue.Primitive.String("two"))
         ))
         Assert.assertEquals(StringValue("OK"), mset.execute(store))
         Assert.assertEquals(IntValue(0), store.get("key0"))

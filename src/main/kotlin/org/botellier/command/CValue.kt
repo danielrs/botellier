@@ -33,15 +33,15 @@ sealed class CValue {
         class Any : Primitive()
     }
 
+    data class Pair(val first: String, val second: Primitive) : CValue()
+
     sealed class Array : CValue() {
         data class Int(val value: List<Primitive.Int>) : Array()
         data class Float(val value: List<Primitive.Float>) : Array()
         data class String(val value: List<Primitive.String>) : Array()
-        data class Any(val value: List<Primitive>) : Array()
         data class Pair(val value: List<CValue.Pair>) : Array()
+        data class Any(val value: List<Primitive>) : Array()
     }
-
-    data class Pair(val first: Primitive.String, val second: Primitive) : CValue()
 
     // TODO: Fix this values to print arrays of any(s) and pair(s).
     override final fun toString(): String {
@@ -50,12 +50,12 @@ sealed class CValue {
             is Primitive.Float -> this.value.toString()
             is Primitive.String -> this.value
             is Primitive.Any -> "nil"
+            is Pair -> "(${this.first}, ${this.second})"
             is Array.Int -> this.value.toString()
             is Array.Float -> this.value.toString()
             is Array.String -> this.value.toString()
             is Array.Pair -> this.value.toString()
             is Array.Any -> this.value.toString()
-            is Pair -> "(${this.first}, ${this.second})"
         }
     }
 

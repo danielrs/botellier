@@ -113,7 +113,7 @@ open class Parser(val tokens: List<Lexer.Token>) {
 
     // Special combinators.
 
-    inline fun <reified T> many(which: () -> T): Array<T> {
+    inline fun <reified T> many(which: () -> T): List<T> {
         val array = arrayListOf<T>()
         var prev: Int
         while (true) {
@@ -128,10 +128,10 @@ open class Parser(val tokens: List<Lexer.Token>) {
                 throw ParserException("Combinator function must consume input.")
             }
         }
-        return array.toTypedArray()
+        return array.toList()
     }
 
-    inline fun <reified T> many1(which: () -> T): Array<T> {
+    inline fun <reified T> many1(which: () -> T): List<T> {
         val array = many(which)
         if (array.isEmpty()) {
             throw UnexpectedEOFException()

@@ -71,6 +71,12 @@ class StringValue(initialValue: String = "") : StorePrimitive, PrimitiveValue<St
     override fun toString(): String = value
 }
 
+class NilValue : StorePrimitive {
+    override fun clone(): NilValue = NilValue()
+    override fun toString(): String = "nil"
+    override fun equals(other: Any?): Boolean = other == null || other is NilValue
+}
+
 /**
  * Collection types.
  */
@@ -170,8 +176,14 @@ class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreType, It
 
     val size get() = map.size
 
-    fun get(key: String): StoreValue? {
-        return map[key]
+    fun get(key: String): StoreValue {
+        val value = map[key]
+        if (value != null) {
+            return value
+        }
+        else {
+            return NilValue()
+        }
     }
 
     fun set(key: String, value: StoreValue) {

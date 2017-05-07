@@ -19,6 +19,7 @@ class JsonSerializer(override val value: StoreType,
             is IntValue -> builder.append(value.value)
             is FloatValue -> builder.append(value.value)
             is StringValue -> builder.append("\"$value\"")
+            is NilValue -> {} // skips nil
             is ListValue -> renderList(builder, indent, value)
             is SetValue -> renderList(builder, indent, value.map(String::toValue))
             is MapValue -> renderMap(builder, indent, value)

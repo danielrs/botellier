@@ -46,7 +46,7 @@ abstract class Command {
                 }
     }
 
-    open fun execute(store: Store): StoreValue? {
+    open fun execute(store: Store): StoreValue {
         throw CommandDisabledException(name)
     }
 
