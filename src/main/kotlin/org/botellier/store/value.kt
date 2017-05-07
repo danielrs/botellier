@@ -44,6 +44,13 @@ where T : Comparable<T> {
             }
         }
 
+    override fun equals(other: Any?): Boolean {
+        return when (other) {
+            is PrimitiveValue<*> -> other.value == value
+            else -> other == value
+        }
+    }
+
     override fun compareTo(other: PrimitiveValue<T>): Int {
         return value.compareTo(other.value)
     }

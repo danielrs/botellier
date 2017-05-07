@@ -28,6 +28,20 @@ class AppendCommand : Command() {
 
     @field:Parameter(1)
     var value = anyValue
+
+    override fun execute(store: Store): StoreValue? {
+        return withType<StringValue>(store, key.value) {
+            val builder = StringBuilder()
+            if (it != null) {
+                builder.append(it.value)
+            }
+            builder.append(value.toString())
+
+            val result = builder.toString()
+            store.set(key.value, result.toValue())
+            return result.length.toValue()
+        }
+    }
 }
 
 @WithCommand("DECR")
@@ -141,7 +155,7 @@ class SetCommand : Command() {
 
     override fun execute(store: Store): StoreValue? {
         store.set(key.value, value.toValue())
-        return null
+        return StringValue("OK")
     }
 }
 

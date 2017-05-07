@@ -44,15 +44,15 @@ sealed class CValue {
 
     override final fun toString(): String {
         return when(this) {
-            is Primitive.Int -> "${this.value}:Int"
-            is Primitive.Float -> "${this.value}:Float"
-            is Primitive.String -> "\"${this.value}\":String"
-            is Primitive.Any -> "Any:Any"
-            is Array.Int -> "${this.value}:IntArray"
-            is Array.Float -> "${this.value}:FloatArray"
-            is Array.String -> "${this.value}:StringArray"
-            is Array.Any -> "${this.value}:AnyArray"
-            is Pair -> "(${this.first}, ${this.second}):Pair"
+            is Primitive.Int -> this.value.toString()
+            is Primitive.Float -> this.value.toString()
+            is Primitive.String -> this.value
+            is Primitive.Any -> "nil"
+            is Array.Int -> this.value.toString()
+            is Array.Float -> this.value.toString()
+            is Array.String -> this.value.toString()
+            is Array.Any -> "[]"
+            is Pair -> "(${this.first}, ${this.second})"
         }
     }
 
