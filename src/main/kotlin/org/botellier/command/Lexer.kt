@@ -50,14 +50,14 @@ class Lexer(bufferedInputStream: BufferedInputStream) {
     // Lexing functions.
     private fun token(): PrimitiveToken {
         reader.expect(DOLLAR)
-        val length = number()
+        val length = int()
         val bulk = bulkString(length)
         return castToken(bulk)
     }
 
     private fun tokenList(): ListToken {
         reader.expect(STAR)
-        val length = number()
+        val length = int()
         val array = ArrayList<PrimitiveToken>(length)
         for (i in 0..length - 1) {
             array.add(token())
@@ -65,7 +65,7 @@ class Lexer(bufferedInputStream: BufferedInputStream) {
         return ListToken(array.toList())
     }
 
-    private fun number(): Int {
+    private fun int(): Int {
         val number = reader.readWhile { it != CR }
         reader.expect(LF)
         try {
