@@ -6,6 +6,9 @@ import kotlin.reflect.full.createInstance
 // from: https://redis.io/commands
 
 val COMMANDS = arrayOf(
+        // Lists.
+        LPushCommand::class,
+        // Strings.
         AppendCommand::class,
         DecrCommand::class,
         DecrbyCommand::class,
@@ -20,7 +23,33 @@ val COMMANDS = arrayOf(
 ).map { it.createInstance().name to it }.toMap()
 
 /**
- * Strings
+ * Lists.
+ */
+
+@WithCommand("LPUSH")
+class LPushCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    @field:Parameter(1)
+    var value = anyValue
+
+    @field:Parameter(2)
+    var rest = anyArrayValue
+
+    override fun execute(store: Store): StoreValue {
+        return withValue<ListValue>(store, key.value) {
+            val list = it ?: ListValue()
+            list.lpush(value.toValue())
+            rest.value.map { list.lpush(it.toValue()) }
+            store.set(key.value, list)
+            return IntValue(list.size)
+        }
+    }
+}
+
+/**
+ * Strings.
  */
 
 @WithCommand("APPEND")

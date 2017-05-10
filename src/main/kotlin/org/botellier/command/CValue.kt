@@ -1,9 +1,9 @@
 package org.botellier.command
 
-import org.botellier.store.StoreValue
+import org.botellier.store.StorePrimitive
 import org.botellier.store.toValue
 
-fun CValue.Primitive.toValue(): StoreValue {
+fun CValue.Primitive.toValue(): StorePrimitive {
     return when (this) {
         is CValue.Primitive.Int -> this.value.toValue()
         is CValue.Primitive.Float -> this.value.toValue()

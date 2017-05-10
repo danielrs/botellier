@@ -7,6 +7,17 @@ import org.junit.Test
 class CommandsTest {
 
     @Test
+    fun lpushCommand() {
+        val store = Store()
+        val lpush = LPushCommand()
+        lpush.key = CValue.Primitive.String("key")
+        lpush.value = CValue.Primitive.Int(1)
+        lpush.rest = CValue.Array.Any(listOf(CValue.Primitive.Float(2.0), CValue.Primitive.String("three")))
+        Assert.assertEquals(IntValue(3), lpush.execute(store))
+        Assert.assertEquals(1, store.size)
+    }
+
+    @Test
     fun appendCommand() {
         val store = Store()
         val append = AppendCommand()
