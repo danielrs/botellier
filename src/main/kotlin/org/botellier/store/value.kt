@@ -109,7 +109,8 @@ class ListValue(initialValues: List<StorePrimitive> = mutableListOf()) : StoreCo
     }
 
     fun remove(indices: List<Int>): List<StorePrimitive> {
-        var removed = mutableListOf<StorePrimitive>()
+        val indices = indices.sortedDescending().distinct()
+        val removed = mutableListOf<StorePrimitive>()
         indices.map { removed.add(remove(it)) }
         return removed
     }
@@ -198,6 +199,7 @@ class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreType, It
     private var map: ConcurrentHashMap<String, StoreValue> =
             ConcurrentHashMap(initialValues.mapValues { it.value.clone() }.toMap())
 
+    val keys get() = map.keys.toSet()
     val size get() = map.size
 
     fun get(key: String): StoreValue {

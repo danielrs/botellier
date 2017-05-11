@@ -6,6 +6,12 @@ import kotlin.reflect.full.createInstance
 // from: https://redis.io/commands
 
 val COMMANDS = arrayOf(
+        // Keys.
+        DelCommand::class,
+        ExistsCommand::class,
+        KeysCommand::class,
+        RenameCommand::class,
+        TypeCommand::class,
         // Lists.
         LIndexCommand::class,
         LInsertCommand::class,
@@ -16,6 +22,8 @@ val COMMANDS = arrayOf(
         LRemCommand::class,
         LSetCommand::class,
         LTrimCommand::class,
+        RPopCommand::class,
+        RPushCommand::class,
         // Strings.
         AppendCommand::class,
         DecrCommand::class,
@@ -29,6 +37,94 @@ val COMMANDS = arrayOf(
         SetCommand::class,
         StrlenCommand::class
 ).map { it.createInstance().name to it }.toMap()
+
+private val OK = StringValue("OK")
+
+/**
+ * Keys.
+ */
+
+@WithCommand("DEL")
+class DelCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    @field:Parameter(1)
+    var rest = stringArrayValue
+
+    override fun execute(store: Store): StoreValue {
+        store.remove(key.value)
+        rest.value.map { store.remove(it.value) }
+        return OK
+    }
+}
+
+@WithCommand("EXISTS")
+class ExistsCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    @field:Parameter(1)
+    var rest = stringArrayValue
+
+    override fun execute(store: Store): StoreValue {
+        var total = 0
+        if (store.get(key.value) !is NilValue) {
+            total++
+        }
+        rest.value.map {
+            if (store.get(it.value) !is NilValue) {
+                total++
+            }
+        }
+        return IntValue(total)
+    }
+}
+
+@WithCommand("KEYS")
+class KeysCommand : Command() {
+    @field:Parameter(0)
+    var pattern = stringValue
+
+    override fun execute(store: Store): StoreValue {
+        val regex = Regex(pattern.value)
+        val matching = mutableListOf<String>()
+        store.keys.map { regex.matches(it) && matching.add(it) }
+        return ListValue(matching.map { it.toValue() })
+    }
+}
+
+@WithCommand("RENAME")
+class RenameCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    @field:Parameter(1)
+    var newkey = stringValue
+
+    override fun execute(store: Store): StoreValue {
+        return requireValue<StoreValue>(store, key.value) {
+            if (store.get(newkey.value) !is NilValue) {
+                val del = DelCommand()
+                del.key = newkey
+                del.execute(store)
+            }
+            store.remove(key.value)
+            store.set(newkey.value, it)
+            OK
+        }
+    }
+}
+
+@WithCommand("TYPE")
+class TypeCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    override fun execute(store: Store): StoreValue {
+        return StringValue(store.get(key.value)::class.simpleName ?: "Unknown")
+    }
+}
 
 /**
  * Lists.
@@ -44,11 +140,11 @@ class LIndexCommand : Command() {
 
     override fun execute(store: Store): StoreValue {
         return requireValue<ListValue>(store, key.value) {
-            if (index.value < 0 || index.value > it.size - 1) {
-                NilValue()
+            if (index.value >= 0 && index.value <= it.size - 1) {
+                it.get(index.value)
             }
             else {
-                it.get(index.value)
+                NilValue()
             }
         }
     }
@@ -183,17 +279,21 @@ class LRemCommand : Command() {
             val value = value.toValue()
             when {
                 count < 0 -> {
-                    for (i in it.size - 1 downTo 0) {
+                    for (i in it.size-1 downTo 0) {
                         if (count == 0) break
-                        if (value == it.get(i)) indicesToRemove.add(i)
-                        count++
+                        if (value == it.get(i)) {
+                            indicesToRemove.add(i)
+                            count++
+                        }
                     }
                 }
                 count > 0 -> {
                     for (i in 0..it.size-1) {
                         if (count == 0) break
-                        if (value == it.get(i)) indicesToRemove.add(i)
-                        count--
+                        if (value == it.get(i)) {
+                            indicesToRemove.add(i)
+                            count--
+                        }
                     }
                 }
                 count == 0 -> {
@@ -225,7 +325,7 @@ class LSetCommand : Command() {
                 throw CommandException("LSET index out of bounds")
             }
             it.set(index.value, value.toValue())
-            StringValue("OK")
+            OK
         }
     }
 }
@@ -247,7 +347,46 @@ class LTrimCommand : Command() {
             if (it.size <= 0) {
                 store.remove(key.value)
             }
-            StringValue("OK")
+            OK
+        }
+    }
+}
+
+@WithCommand("RPOP")
+class RPopCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    override fun execute(store: Store): StoreValue {
+        return withValue<ListValue>(store, key.value) {
+            if (it != null && it.size > 0) {
+                it.rpop()
+            }
+            else {
+                NilValue()
+            }
+        }
+    }
+}
+
+@WithCommand("RPUSH")
+class RPushCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    @field:Parameter(1)
+    var value = anyValue
+
+    @field:Parameter(2)
+    var rest = anyArrayValue
+
+    override fun execute(store: Store): StoreValue {
+        return withValue<ListValue>(store, key.value) {
+            val list = it ?: ListValue()
+            list.rpush(value.toValue())
+            rest.value.map { list.rpush(it.toValue()) }
+            store.set(key.value, list)
+            IntValue(list.size)
         }
     }
 }
@@ -410,7 +549,7 @@ class MSetCommand : Command() {
         for ((key, value) in rest.value) {
             store.set(key, value.toValue())
         }
-        return StringValue("OK")
+        return OK
     }
 }
 
@@ -424,7 +563,7 @@ class SetCommand : Command() {
 
     override fun execute(store: Store): StoreValue {
         store.set(key.value, value.toValue())
-        return StringValue("OK")
+        return OK
     }
 }
 

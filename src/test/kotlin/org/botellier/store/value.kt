@@ -153,6 +153,15 @@ class StoreValueTest {
     }
 
     @Test
+    fun removingFromList() {
+        val list = listOf(1, 2, 3, 4, 5, 6, 7, 8, 9).map(Int::toValue).toValue()
+        list.remove(0)
+        list.remove(listOf(0, 0, 1, 1, 2, 3, 4, 5, 6))
+        Assert.assertEquals(1, list.size)
+        Assert.assertEquals(IntValue(9), list.lpop())
+    }
+
+    @Test
     fun slicingList() {
         val list = listOf(1, 2, 3).map(Int::toValue).toValue()
         Assert.assertEquals(list.slice(0, 2).toList().map{ (it as IntValue).value }, listOf(1, 2, 3))

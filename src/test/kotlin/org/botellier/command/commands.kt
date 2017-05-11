@@ -6,6 +6,78 @@ import org.junit.Test
 
 class CommandsTest {
 
+    // Keys.
+
+    @Test
+    fun delCommand() {
+        val store = Store()
+        val del = DelCommand()
+        store.set("key0", IntValue(1))
+        store.set("key1", IntValue(2))
+        store.set("key2", IntValue(3))
+        del.key = CValue.Primitive.String("key0")
+        del.rest = CValue.Array.String(listOf(
+                CValue.Primitive.String("key1"),
+                CValue.Primitive.String("key2")
+        ))
+        Assert.assertEquals(StringValue("OK"), del.execute(store))
+        Assert.assertEquals(0, store.size)
+    }
+
+    @Test
+    fun existsCommand() {
+        val store = Store()
+        val exists = ExistsCommand()
+        store.set("key0", IntValue(1))
+        store.set("key1", IntValue(2))
+        store.set("key2", IntValue(3))
+        exists.key = CValue.Primitive.String("key0")
+        exists.rest = CValue.Array.String(listOf(
+                CValue.Primitive.String("key1"),
+                CValue.Primitive.String("key2"),
+                CValue.Primitive.String("not key"),
+                CValue.Primitive.String("key1")
+        ))
+        Assert.assertEquals(IntValue(4), exists.execute(store))
+    }
+
+    @Test
+    fun keysCommand() {
+        val store = Store()
+        val keys = KeysCommand()
+        store.set("key", IntValue(1))
+        store.set("hey", IntValue(1))
+        store.set("trolleyish", IntValue(1))
+        keys.pattern = CValue.Primitive.String(".*ey$")
+        Assert.assertEquals(IntValue(2), (keys.execute(store) as ListValue).size)
+    }
+
+    @Test
+    fun renameCommand() {
+        val store = Store()
+        val rename = RenameCommand()
+        store.set("key", IntValue(1))
+        rename.key = CValue.Primitive.String("key")
+        rename.newkey = CValue.Primitive.String("newkey")
+        Assert.assertEquals(StringValue("OK"), rename.execute(store))
+        Assert.assertEquals(NilValue(), store.get("key"))
+        Assert.assertEquals(IntValue(1), store.get("newkey"))
+        rename.key = rename.newkey
+        Assert.assertEquals(StringValue("OK"), rename.execute(store))
+        Assert.assertEquals(IntValue(1), store.get("newkey"))
+    }
+
+    @Test
+    fun typeCommand() {
+        val store = Store()
+        val type = TypeCommand()
+        store.set("key", IntValue(1))
+        type.key = CValue.Primitive.String("key")
+        Assert.assertEquals(StringValue("IntValue"), type.execute(store))
+        type.key = CValue.Primitive.String("not key")
+        Assert.assertEquals(StringValue("NilValue"), type.execute(store))
+    }
+
     // Lists.
 
     @Test
@@ -68,19 +140,7 @@ class CommandsTest {
         lpush.value = CValue.Primitive.Int(1)
         lpush.rest = CValue.Array.Any(listOf(CValue.Primitive.Float(2.0), CValue.Primitive.String("three")))
         Assert.assertEquals(IntValue(3), lpush.execute(store))
-        Assert.assertEquals(1, store.size)
-    }
-
-    @Test
-    fun lpushExisting() {
-        val store = Store()
-        val lpush = LPushCommand()
-        store.set("key", ListValue(listOf(IntValue(1))))
-        lpush.key = CValue.Primitive.String("key")
-        lpush.value = CValue.Primitive.Int(2)
-        lpush.rest = CValue.Array.Any(listOf(CValue.Primitive.Float(3.0)))
-        Assert.assertEquals(IntValue(3), lpush.execute(store))
-        Assert.assertEquals(3, (store.get("key") as ListValue).size)
+        Assert.assertEquals(IntValue(1), (store.get("key") as ListValue).rpop())
     }
 
     @Test
@@ -98,12 +158,19 @@ class CommandsTest {
     fun lremCommand() {
         val store = Store()
         val lrem = LRemCommand()
-        store.set("key", ListValue(listOf(IntValue(1), IntValue(2), IntValue(2))))
         lrem.key = CValue.Primitive.String("key")
+
+        store.set("key", ListValue(listOf(IntValue(1), IntValue(1), IntValue(2), IntValue(2))))
         lrem.count = CValue.Primitive.Int(-2)
+        lrem.value = CValue.Primitive.Int(1)
+        Assert.assertEquals(IntValue(2), lrem.execute(store))
+        Assert.assertEquals(listOf(2, 2), (store.get("key") as ListValue).toList().map { (it as IntValue).value })
+
+        store.set("key", ListValue(listOf(IntValue(1), IntValue(1), IntValue(2), IntValue(2))))
+        lrem.count = CValue.Primitive.Int(2)
         lrem.value = CValue.Primitive.Int(2)
         Assert.assertEquals(IntValue(2), lrem.execute(store))
-        Assert.assertEquals(listOf(1), (store.get("key") as ListValue).toList().map { (it as IntValue).value })
+        Assert.assertEquals(listOf(1, 1), (store.get("key") as ListValue).toList().map { (it as IntValue).value })
     }
 
     @Test
@@ -132,6 +199,29 @@ class CommandsTest {
         ltrim.stop = CValue.Primitive.Int(0)
         Assert.assertEquals(StringValue("OK"), ltrim.execute(store))
         Assert.assertEquals(0, store.size)
+    }
+
+    @Test
+    fun rpopCommand() {
+        val store = Store()
+        val rpop = RPopCommand()
+        store.set("key", ListValue(listOf(IntValue(1), IntValue(2), IntValue(3))))
+        rpop.key = CValue.Primitive.String("key")
+        Assert.assertEquals(IntValue(3), rpop.execute(store))
+        Assert.assertEquals(IntValue(2), rpop.execute(store))
+        Assert.assertEquals(IntValue(1), rpop.execute(store))
+        Assert.assertEquals(NilValue(), rpop.execute(store))
+    }
+
+    @Test
+    fun rpushCommand() {
+        val store = Store()
+        val rpush = RPushCommand()
+        rpush.key = CValue.Primitive.String("key")
+        rpush.value = CValue.Primitive.Int(1)
+        rpush.rest = CValue.Array.Any(listOf(CValue.Primitive.Float(2.0), CValue.Primitive.String("three")))
+        Assert.assertEquals(IntValue(3), rpush.execute(store))
+        Assert.assertEquals(IntValue(1), (store.get("key") as ListValue).lpop())
     }
 
     // Strings.
