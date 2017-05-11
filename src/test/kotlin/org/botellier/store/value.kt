@@ -155,6 +155,8 @@ class StoreValueTest {
     @Test
     fun slicingList() {
         val list = listOf(1, 2, 3).map(Int::toValue).toValue()
-        Assert.assertEquals(list.slice(0..2).toList().map{ (it as IntValue).value }, listOf(1, 2, 3))
+        Assert.assertEquals(list.slice(0, 2).toList().map{ (it as IntValue).value }, listOf(1, 2, 3))
+        Assert.assertEquals(list.slice(0, 1).toList().map{ (it as IntValue).value }, listOf(1, 2))
+        Assert.assertEquals(list.slice(-3, 2).toList().map{ (it as IntValue).value }, listOf(1, 2, 3))
     }
 }

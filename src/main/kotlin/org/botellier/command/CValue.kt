@@ -1,7 +1,6 @@
 package org.botellier.command
 
-import org.botellier.store.StorePrimitive
-import org.botellier.store.toValue
+import org.botellier.store.*
 
 fun CValue.Primitive.toValue(): StorePrimitive {
     return when (this) {
@@ -31,6 +30,24 @@ sealed class CValue {
         data class Float(val value: kotlin.Double) : Primitive()
         data class String(val value: kotlin.String) : Primitive()
         class Any : Primitive()
+
+        override final fun equals(other: kotlin.Any?): Boolean {
+            return when {
+                this is Int && other is Int ->
+                    this.value == other.value
+                this is Int && other is IntValue ->
+                    this.value == other.value
+                this is Float && other is Float ->
+                    this.value == other.value
+                this is Float && other is FloatValue ->
+                    this.value == other.value
+                this is String && other is String ->
+                    this.value == other.value
+                this is String && other is StringValue ->
+                    this.value == other.value
+                else -> false
+            }
+        }
     }
 
     data class Pair(val first: String, val second: Primitive) : CValue()

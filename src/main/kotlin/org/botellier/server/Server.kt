@@ -1,9 +1,6 @@
 package org.botellier.server
 
-import org.botellier.store.MapValue
 import org.botellier.store.Store
-import java.io.BufferedWriter
-import java.io.OutputStreamWriter
 import java.net.ServerSocket
 import java.util.concurrent.Executor
 

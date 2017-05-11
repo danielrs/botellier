@@ -96,10 +96,22 @@ class ListValue(initialValues: List<StorePrimitive> = mutableListOf()) : StoreCo
         }
     }
 
+    fun add(index: Int, value: StorePrimitive) {
+        synchronized(list) {
+            list.add(index, value)
+        }
+    }
+
     fun remove(index: Int): StorePrimitive {
         return synchronized(list) {
             list.removeAt(index)
         }
+    }
+
+    fun remove(indices: List<Int>): List<StorePrimitive> {
+        var removed = mutableListOf<StorePrimitive>()
+        indices.map { removed.add(remove(it)) }
+        return removed
     }
 
     fun lpush(value: StorePrimitive) {
@@ -126,7 +138,18 @@ class ListValue(initialValues: List<StorePrimitive> = mutableListOf()) : StoreCo
         }
     }
 
-    fun slice(range: IntRange): ListValue = ListValue(list.slice(range).map { it.clone() })
+    fun trim(start: Int, endInclusive: Int) {
+        val start = if (start < 0) (start % size + size) % size else start
+        val endInclusive = if (endInclusive <0) (endInclusive % size + size) % size else endInclusive
+        list = list.slice(start..endInclusive).toMutableList()
+    }
+
+    fun slice(start: Int, endInclusive: Int): ListValue {
+        val start = if (start < 0) (start % size + size) % size else start
+        val endInclusive = if (endInclusive <0) (endInclusive % size + size) % size else endInclusive
+        return ListValue(list.slice(start..endInclusive).map { it.clone() })
+    }
+
     fun toList(): List<StorePrimitive> = list.map { it.clone() }
 
     override val size get() = list.size
@@ -170,6 +193,7 @@ class SetValue(initialValues: Set<String> = setOf()) : StoreCollection<String> {
     override fun toString(): String = set.joinToString(prefix = "[", postfix = "]")
 }
 
+// TODO: Maybe clone on get and set?
 class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreType, Iterable<Map.Entry<String, StoreValue>> {
     private var map: ConcurrentHashMap<String, StoreValue> =
             ConcurrentHashMap(initialValues.mapValues { it.value.clone() }.toMap())
@@ -187,7 +211,7 @@ class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreType, It
     }
 
     fun set(key: String, value: StoreValue) {
-        map[key] = value.clone()
+        map[key] = value
     }
 
     fun remove(key: String) {

@@ -76,15 +76,19 @@ abstract class Command {
         return builder.toString()
     }
 
-    // Exceptions.
-    class CommandDisabledException(name: String)
-        : Throwable("Command '$name' is current disabled.")
-
+    // Declaration exceptions.
     class InvalidCommandDeclarationException
         : Throwable("Command must declare a name using the @WithCommand annotation")
 
     class InvalidPropertyException(className: String, paramName: String, message: String)
         : Throwable("Property '$paramName' from [$className]: $message")
+
+    // Execution exceptions.
+    class CommandException(message: String)
+        : Throwable(message)
+
+    class CommandDisabledException(name: String)
+        : Throwable("Command '$name' is current disabled.")
 
     class WrongTypeException(key: String, currentType: String)
         : Throwable("Invalid operation on '$key' of type '$currentType'.")

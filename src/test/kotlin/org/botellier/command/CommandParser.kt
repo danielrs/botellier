@@ -65,7 +65,6 @@ class CommandParserTest {
     fun msetCommand() {
         val tokens = toTokens("MSET", "key", "10", "key1", "20", "key0", "20")
         val command = CommandParser.parse(tokens)
-        println(command)
         Assert.assertTrue(command is MSetCommand)
     }
 

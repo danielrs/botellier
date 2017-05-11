@@ -7,7 +7,15 @@ import kotlin.reflect.full.createInstance
 
 val COMMANDS = arrayOf(
         // Lists.
+        LIndexCommand::class,
+        LInsertCommand::class,
+        LLenCommand::class,
+        LPopCommand::class,
         LPushCommand::class,
+        LRangeCommand::class,
+        LRemCommand::class,
+        LSetCommand::class,
+        LTrimCommand::class,
         // Strings.
         AppendCommand::class,
         DecrCommand::class,
@@ -26,6 +34,97 @@ val COMMANDS = arrayOf(
  * Lists.
  */
 
+@WithCommand("LINDEX")
+class LIndexCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    @field:Parameter(1)
+    var index = intValue
+
+    override fun execute(store: Store): StoreValue {
+        return requireValue<ListValue>(store, key.value) {
+            if (index.value < 0 || index.value > it.size - 1) {
+                NilValue()
+            }
+            else {
+                it.get(index.value)
+            }
+        }
+    }
+}
+
+@WithCommand("LINSERT")
+class LInsertCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    @field:Parameter(1)
+    var position = stringValue
+
+    @field:Parameter(2)
+    var pivot = anyValue
+
+    @field:Parameter(2)
+    var value = anyValue
+
+    override fun execute(store: Store): StoreValue {
+        return requireValue<ListValue>(store, key.value) {
+            if (position.value !in listOf("BEFORE", "AFTER")) {
+                throw Command.CommandException("LINSERT BEFORE or AFTER expected.")
+            }
+            val before = position.value == "BEFORE"
+            val value = value.toValue()
+            val index = it.indexOf(pivot.toValue())
+            when (index) {
+                -1 -> IntValue(-1)
+                else -> {
+                    when {
+                        before -> it.add(index, value)
+                        index < it.size - 1 -> it.add(index + 1, value)
+                        else -> it.rpush(value)
+                    }
+                    IntValue(it.size)
+                }
+            }
+        }
+    }
+}
+
+@WithCommand("LLEN")
+class LLenCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    override fun execute(store: Store): StoreValue {
+        return withValue<ListValue>(store, key.value) {
+            if (it != null) {
+                IntValue(it.size)
+            }
+            else {
+                IntValue(0)
+            }
+        }
+    }
+}
+
+@WithCommand("LPOP")
+class LPopCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    override fun execute(store: Store): StoreValue {
+        return withValue<ListValue>(store, key.value) {
+            if (it != null && it.size > 0) {
+                it.lpop()
+            }
+            else {
+                NilValue()
+            }
+        }
+    }
+}
+
 @WithCommand("LPUSH")
 class LPushCommand : Command() {
     @field:Parameter(0)
@@ -43,7 +142,112 @@ class LPushCommand : Command() {
             list.lpush(value.toValue())
             rest.value.map { list.lpush(it.toValue()) }
             store.set(key.value, list)
-            return IntValue(list.size)
+            IntValue(list.size)
+        }
+    }
+}
+
+@WithCommand("LRANGE")
+class LRangeCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    @field:Parameter(1)
+    var start = intValue
+
+    @field:Parameter(2)
+    var stop = intValue
+
+    override fun execute(store: Store): StoreValue {
+        return requireValue<ListValue>(store, key.value) {
+            it.slice(start.value, stop.value)
+        }
+    }
+}
+
+@WithCommand("LREM")
+class LRemCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    @field:Parameter(1)
+    var count = intValue
+
+    @field:Parameter(2)
+    var value = anyValue
+
+    override fun execute(store: Store): StoreValue {
+        return requireValue<ListValue>(store, key.value) {
+            var count = count.value
+            val indicesToRemove = mutableListOf<Int>()
+            val value = value.toValue()
+            when {
+                count < 0 -> {
+                    for (i in it.size - 1 downTo 0) {
+                        if (count == 0) break
+                        if (value == it.get(i)) indicesToRemove.add(i)
+                        count++
+                    }
+                }
+                count > 0 -> {
+                    for (i in 0..it.size-1) {
+                        if (count == 0) break
+                        if (value == it.get(i)) indicesToRemove.add(i)
+                        count--
+                    }
+                }
+                count == 0 -> {
+                    for (i in 0..it.size-1) {
+                        if (value == it.get(i)) indicesToRemove.add(i)
+                    }
+                }
+            }
+            it.remove(indicesToRemove)
+            return IntValue(indicesToRemove.size)
+        }
+    }
+}
+
+@WithCommand("LSET")
+class LSetCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    @field:Parameter(1)
+    var index = intValue
+
+    @field:Parameter(2)
+    var value = anyValue
+
+    override fun execute(store: Store): StoreValue {
+        return requireValue<ListValue>(store, key.value) {
+            if (index.value < 0 || index.value > it.size - 1) {
+                throw CommandException("LSET index out of bounds")
+            }
+            it.set(index.value, value.toValue())
+            StringValue("OK")
+        }
+    }
+}
+
+@WithCommand("LTRIM")
+class LTrimCommand : Command() {
+    @field:Parameter(0)
+    var key = stringValue
+
+    @field:Parameter(1)
+    var start = intValue
+
+    @field:Parameter(2)
+    var stop = intValue
+
+    override fun execute(store: Store): StoreValue {
+        return requireValue<ListValue>(store, key.value) {
+            it.trim(start.value, stop.value)
+            if (it.size <= 0) {
+                store.remove(key.value)
+            }
+            StringValue("OK")
         }
     }
 }
@@ -70,7 +274,7 @@ class AppendCommand : Command() {
 
             val result = builder.toString()
             store.set(key.value, result.toValue())
-            return result.length.toValue()
+            result.length.toValue()
         }
     }
 }
@@ -108,7 +312,11 @@ class DecrbyCommand : Command() {
 class GetCommand : Command() {
     @field:Parameter(0)
     var key = stringValue
-    override fun execute(store: Store): StoreValue = store.get(key.value)
+    override fun execute(store: Store): StoreValue {
+        return withPrimitive<StorePrimitive>(store, key.value) {
+            it ?: NilValue()
+        }
+    }
 }
 
 @WithCommand("INCR")
@@ -241,21 +449,28 @@ class StrlenCommand : Command() {
  * Utility functions.
  */
 
-//private inline fun <reified T>withType(store: Store, key: String, body: (T) -> Unit) {
-//    val value = store.get(key)
-//    if (value != null) {
-//        if (value is T) {
-//            body(value)
-//        }
-//        else {
-//            throw Command.WrongTypeException(key, value.javaClass.name)
-//        }
-//    }
-//    else {
-//        throw Command.WrongTypeException(key, "null")
-//    }
-//}
+/**
+ * Gets 'key' from store and throws exception if 'key' doesn't exists.
+ */
+private inline fun <reified T, R> requireType(store: Store, key: String, body: (T) -> R): R {
+    val value = store.get(key)
+    if (value !is NilValue) {
+        if (value is T) {
+            return body(value)
+        }
+        else {
+            throw Command.WrongTypeException(key, value.javaClass.name)
+        }
+    }
+    else {
+        throw Command.WrongTypeException(key, NilValue::class.qualifiedName ?: "NilValue")
+    }
+}
 
+/**
+ * Just like [requireType], except that body parameter is nullable (doesn't throw exception if 'key' lookup
+ * fails).
+ */
 private inline fun <reified T, R> withType(store: Store, key: String, body: (T?) -> R): R {
     val value = store.get(key)
     if (value !is NilValue) {
@@ -272,7 +487,10 @@ private inline fun <reified T, R> withType(store: Store, key: String, body: (T?)
 }
 
 private inline fun <reified T> withValue(store: Store, key: String, body: (T?) -> StoreValue)
-        = withType<T, StoreValue>(store, key, body)
+        = withType(store, key, body)
 
 private inline fun <reified T> withPrimitive(store: Store, key: String, body: (T?) -> StorePrimitive)
-        = withType<T, StorePrimitive>(store, key, body)
+        = withType(store, key, body)
+
+private inline fun <reified T> requireValue(store: Store, key: String, body: (T) -> StoreValue)
+        = requireType(store, key, body)
