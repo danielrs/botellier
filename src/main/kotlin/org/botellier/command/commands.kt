@@ -572,7 +572,7 @@ class IncrbyfloatCommand : StoreCommand() {
         return withValue<StoreNumber>(store, key.value) {
             val value = when(it) {
                 is IntValue -> (it.value.toFloat() + increment.value).toValue()
-                is FloatValue -> (it.value - increment.value).toValue()
+                is FloatValue -> (it.value + increment.value).toValue()
                 else -> increment.value.toValue()
             }
             store.set(key.value, value)
