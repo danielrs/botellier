@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/danielrs/botellier.svg?branch=master)](https://travis-ci.org/danielrs/botellier)
+
 ## Botellier
 
 A wannabe, distributed key-value data store. It aims to be a simple Redis clone for the JVM.
