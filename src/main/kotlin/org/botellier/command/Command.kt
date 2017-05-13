@@ -1,9 +1,10 @@
 package org.botellier.command
 
+import org.botellier.server.Client
+import org.botellier.server.Server
 import org.botellier.store.Store
 import org.botellier.store.StoreValue
 import kotlin.reflect.KMutableProperty
-import kotlin.reflect.KType
 import kotlin.reflect.full.declaredMemberProperties
 
 @Target(AnnotationTarget.CLASS)
@@ -44,10 +45,6 @@ abstract class Command {
                     val parameter = field.getAnnotation(Parameter::class.java)
                     CParameter(this, it, parameter?.optional ?: false)
                 }
-    }
-
-    open fun execute(store: Store): StoreValue {
-        throw CommandDisabledException(name)
     }
 
     // Values for initializing parameters in child classes.
@@ -92,4 +89,20 @@ abstract class Command {
 
     class WrongTypeException(key: String, currentType: String)
         : Throwable("Invalid operation on '$key' of type '$currentType'.")
+}
+
+/**
+ * Command types.
+ */
+
+abstract class ConnCommand : Command() {
+    open fun execute(server: Server, client: Client): StoreValue {
+        throw CommandDisabledException(name)
+    }
+}
+
+abstract class StoreCommand : Command() {
+    open fun execute(store: Store): StoreValue {
+        throw CommandDisabledException(name)
+    }
 }

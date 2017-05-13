@@ -1,12 +1,8 @@
 package org.botellier.server
 
-import org.botellier.command.Command
 import org.botellier.command.CommandParser
 import org.botellier.command.Lexer
 import org.botellier.command.Parser
-import java.io.BufferedWriter
-import java.io.IOException
-import java.io.OutputStreamWriter
 import java.net.Socket
 import java.net.SocketException
 import java.net.SocketTimeoutException
@@ -14,7 +10,7 @@ import java.net.SocketTimeoutException
 /**
  * Container class for client information.
  */
-data class Client(val socket: Socket, var db: String? = null)
+data class Client(val socket: Socket, var dbIndex: Int = 0, var isAuthenticated: Boolean = false)
 
 /**
  * Class for handling a new client connection. It reads the input,
@@ -70,5 +66,6 @@ class ClientHandler(val client: Client, val dispatcher: RequestDispatcher) : Run
                 writer.flush()
             }
         }
+        println("Dropping client ${client.socket.inetAddress.hostAddress}")
     }
 }

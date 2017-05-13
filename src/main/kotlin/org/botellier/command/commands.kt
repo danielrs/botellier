@@ -1,11 +1,19 @@
 package org.botellier.command
 
+import org.botellier.server.Client
+import org.botellier.server.Server
 import org.botellier.store.*
 import kotlin.reflect.full.createInstance
 
 // from: https://redis.io/commands
 
 val COMMANDS = arrayOf(
+        // Connection.
+        AuthCommand::class,
+        EchoCommand::class,
+        PingCommand::class,
+        QuitCommand::class,
+        SelectCommand::class,
         // Keys.
         DelCommand::class,
         ExistsCommand::class,
@@ -41,11 +49,71 @@ val COMMANDS = arrayOf(
 private val OK = StringValue("OK")
 
 /**
+ * Connection.
+ */
+
+@WithCommand("AUTH")
+class AuthCommand : ConnCommand() {
+    @field:Parameter(0)
+    var password = stringValue
+
+    override fun execute(server: Server, client: Client): StoreValue {
+        if (server.password == null || password.value == server.password) {
+            client.isAuthenticated = true
+            return OK
+        }
+        else {
+            throw CommandException("Invalid password")
+        }
+    }
+}
+
+@WithCommand("ECHO")
+class EchoCommand : ConnCommand() {
+    @field:Parameter(0)
+    var message = stringValue
+
+    override fun execute(server: Server, client: Client): StoreValue {
+        return StringValue(message.value)
+    }
+}
+
+@WithCommand("PING")
+class PingCommand : ConnCommand() {
+    override fun execute(server: Server, client: Client): StoreValue {
+        return StringValue("PONG")
+    }
+}
+
+@WithCommand("QUIT")
+class QuitCommand : ConnCommand() {
+    override fun execute(server: Server, client: Client): StoreValue {
+        return OK
+    }
+}
+
+@WithCommand("SELECT")
+class SelectCommand : ConnCommand() {
+    @field:Parameter(0)
+    var index = intValue
+
+    override fun execute(server: Server, client: Client): StoreValue {
+        if (index.value >= 0 && index.value < server.dbs.size) {
+            client.dbIndex = index.value
+            return OK
+        }
+        else {
+            throw CommandException("Invalid database index.")
+        }
+    }
+}
+
+/**
  * Keys.
  */
 
 @WithCommand("DEL")
-class DelCommand : Command() {
+class DelCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -60,7 +128,7 @@ class DelCommand : Command() {
 }
 
 @WithCommand("EXISTS")
-class ExistsCommand : Command() {
+class ExistsCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -82,7 +150,7 @@ class ExistsCommand : Command() {
 }
 
 @WithCommand("KEYS")
-class KeysCommand : Command() {
+class KeysCommand : StoreCommand() {
     @field:Parameter(0)
     var pattern = stringValue
 
@@ -95,7 +163,7 @@ class KeysCommand : Command() {
 }
 
 @WithCommand("RENAME")
-class RenameCommand : Command() {
+class RenameCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -117,7 +185,7 @@ class RenameCommand : Command() {
 }
 
 @WithCommand("TYPE")
-class TypeCommand : Command() {
+class TypeCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -131,7 +199,7 @@ class TypeCommand : Command() {
  */
 
 @WithCommand("LINDEX")
-class LIndexCommand : Command() {
+class LIndexCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -151,7 +219,7 @@ class LIndexCommand : Command() {
 }
 
 @WithCommand("LINSERT")
-class LInsertCommand : Command() {
+class LInsertCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -188,7 +256,7 @@ class LInsertCommand : Command() {
 }
 
 @WithCommand("LLEN")
-class LLenCommand : Command() {
+class LLenCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -205,7 +273,7 @@ class LLenCommand : Command() {
 }
 
 @WithCommand("LPOP")
-class LPopCommand : Command() {
+class LPopCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -222,7 +290,7 @@ class LPopCommand : Command() {
 }
 
 @WithCommand("LPUSH")
-class LPushCommand : Command() {
+class LPushCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -244,7 +312,7 @@ class LPushCommand : Command() {
 }
 
 @WithCommand("LRANGE")
-class LRangeCommand : Command() {
+class LRangeCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -262,7 +330,7 @@ class LRangeCommand : Command() {
 }
 
 @WithCommand("LREM")
-class LRemCommand : Command() {
+class LRemCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -309,7 +377,7 @@ class LRemCommand : Command() {
 }
 
 @WithCommand("LSET")
-class LSetCommand : Command() {
+class LSetCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -331,7 +399,7 @@ class LSetCommand : Command() {
 }
 
 @WithCommand("LTRIM")
-class LTrimCommand : Command() {
+class LTrimCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -353,7 +421,7 @@ class LTrimCommand : Command() {
 }
 
 @WithCommand("RPOP")
-class RPopCommand : Command() {
+class RPopCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -370,7 +438,7 @@ class RPopCommand : Command() {
 }
 
 @WithCommand("RPUSH")
-class RPushCommand : Command() {
+class RPushCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -396,7 +464,7 @@ class RPushCommand : Command() {
  */
 
 @WithCommand("APPEND")
-class AppendCommand : Command() {
+class AppendCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -419,7 +487,7 @@ class AppendCommand : Command() {
 }
 
 @WithCommand("DECR")
-class DecrCommand : Command() {
+class DecrCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -432,7 +500,7 @@ class DecrCommand : Command() {
 }
 
 @WithCommand("DECRBY")
-class DecrbyCommand : Command() {
+class DecrbyCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -448,7 +516,7 @@ class DecrbyCommand : Command() {
 }
 
 @WithCommand("GET")
-class GetCommand : Command() {
+class GetCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
     override fun execute(store: Store): StoreValue {
@@ -459,7 +527,7 @@ class GetCommand : Command() {
 }
 
 @WithCommand("INCR")
-class IncrCommand : Command() {
+class IncrCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -472,7 +540,7 @@ class IncrCommand : Command() {
 }
 
 @WithCommand("INCRBY")
-class IncrbyCommand : Command() {
+class IncrbyCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -493,7 +561,7 @@ class IncrbyCommand : Command() {
 }
 
 @WithCommand("INCRBYFLOAT")
-class IncrbyfloatCommand : Command() {
+class IncrbyfloatCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -514,7 +582,7 @@ class IncrbyfloatCommand : Command() {
 }
 
 @WithCommand("MGET")
-class MGetCommand : Command() {
+class MGetCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -534,7 +602,7 @@ class MGetCommand : Command() {
 }
 
 @WithCommand("MSET")
-class MSetCommand : Command() {
+class MSetCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -554,7 +622,7 @@ class MSetCommand : Command() {
 }
 
 @WithCommand("SET")
-class SetCommand : Command() {
+class SetCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -568,7 +636,7 @@ class SetCommand : Command() {
 }
 
 @WithCommand("STRLEN")
-class StrlenCommand : Command() {
+class StrlenCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 

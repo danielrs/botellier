@@ -4,9 +4,8 @@ import org.botellier.store.Store
 import java.net.ServerSocket
 import java.util.concurrent.Executor
 
-class Server(port: Int = 6679) {
-    val port = port
-    val store = Store()
+class Server(val port: Int = 6679, val password: String? = null, dbTotal: Int = 15) {
+    val dbs: List<Store> = List(dbTotal, { Store() })
 
     private val executor = HandlerExecutor()
     private val dispatcher = RequestDispatcher(this)
@@ -21,6 +20,8 @@ class Server(port: Int = 6679) {
             executor.execute(ClientHandler(client, dispatcher))
         }
     }
+
+    fun requiresPassword(): Boolean = password != null
 
     // Inner classes.
     class HandlerExecutor : Executor {

@@ -1,34 +1,48 @@
 package org.botellier.server
 
-import org.botellier.command.Command
+import org.botellier.command.*
 import org.botellier.serializer.toByteArray
 
 data class Request(val client: Client, val command: Command)
 
 class RequestDispatcher(val server: Server) {
     fun dispatch(request: Request) {
-        val byteWriter = request.client.socket.getOutputStream()
-        val writer = byteWriter.writer()
+        val writer = request.client.socket.getOutputStream()
 
         try {
-            val result = request.command.execute(server.store)
-            println(result)
-            byteWriter.write(result.toByteArray())
-        }
-        catch (e: Command.CommandException) {
-            writer.write("-ERROR ${e.message}\r\n")
-        }
-        catch (e: Command.CommandDisabledException) {
-            writer.write("-ERROR ${e.message}\r\n")
+            if (request.command is AuthCommand) {
+                val result = request.command.execute(server, request.client)
+                writer.write(result.toByteArray())
+            }
+            else if (request.command is QuitCommand) {
+                val result = request.command.execute(server, request.client)
+                writer.write(result.toByteArray())
+                request.client.socket.close()
+            }
+            else if (!server.requiresPassword() || request.client.isAuthenticated) {
+                when (request.command) {
+                    is ConnCommand -> {
+                        val result = request.command.execute(server, request.client)
+                        writer.write(result.toByteArray())
+                    }
+                    is StoreCommand -> {
+                        val result = request.command.execute(server.dbs[request.client.dbIndex])
+                        writer.write(result.toByteArray())
+                    }
+                    else -> {
+                        throw Command.CommandException("Invalid command.")
+                    }
+                }
+            }
+            else {
+                throw Command.CommandException("Not authenticated. Use AUTH command.")
+            }
         }
         catch (e: Command.WrongTypeException) {
-            writer.write("-WRONGTYPE ${e.message}\r\n")
+            writer.write("-WRONGTYPE ${e.message}\r\n".toByteArray())
         }
         catch (e: Throwable) {
-            writer.write("-ERROR ${e.message}\r\n")
+            writer.write("-ERROR ${e.message}\r\n".toByteArray())
         }
-
-        writer.flush()
     }
-
 }
