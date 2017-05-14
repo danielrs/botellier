@@ -1,4 +1,2 @@
 language: java
-dist: xenial
-os: linux
 jdk: oraclejdk8
