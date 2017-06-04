@@ -14,7 +14,6 @@ annotation class WithCommand(val name: String)
 annotation class Parameter(val order: Int, val optional: Boolean = false)
 
 abstract class Command {
-
     val name: String by lazy {
         val withCommand = this::class.annotations.find { it is WithCommand } as? WithCommand
         withCommand?.name?.toUpperCase() ?: throw InvalidCommandDeclarationException()
