@@ -2,7 +2,7 @@
 
 ## Botellier
 
-A wannabe, distributed key-value data store. It aims to be a simple Redis clone for the JVM.
+A distributed key-value data store. It aims to be a simple Redis clone for the JVM.
 
 ### Command support
 
