@@ -5,12 +5,12 @@ fun newNode(): Node {
     node.bootstrap()
     node.register()
     node.countReplicas()
-    node.runForReplica()
+    node.runForLeader()
     return node
 }
 
 fun main(args: Array<String>) {
-    for (i in 1..10) {
+    for (i in 1..60) {
         newNode()
     }
     readLine()

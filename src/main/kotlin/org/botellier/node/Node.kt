@@ -5,14 +5,6 @@ import org.apache.zookeeper.*
 import org.apache.zookeeper.ZooDefs.Ids.OPEN_ACL_UNSAFE
 import java.util.*
 
-// Zookeeper path constants.
-const val LEADER_PATH = "/leader"
-const val SREPLICA_PATH = "/sreplica"
-const val LEADER_WATCH_PATH = "$LEADER_PATH/name"
-const val SREPLICA_WATCH_PATH = "$SREPLICA_PATH/name"
-const val REPLICAS_PATH = "/replicas"
-const val CHANGES_PATH = "/changes"
-
 class Node (zooServers: String) : Watcher {
     companion object : KLogging() // sets up logging.
 
@@ -22,7 +14,7 @@ class Node (zooServers: String) : Watcher {
         private set
 
     private var version = 0
-    private var totalReplicas = 0 // replicas that are not leader or synchronized follower.
+    private var totalReplicas = 0 // replicas that are not leader or synced follower.
 
     // ----------------
     // Bootstrap.
@@ -33,13 +25,13 @@ class Node (zooServers: String) : Watcher {
      * don't exist.
      */
     fun bootstrap() {
-        // Leader and synchronized replica.
-        createDirectory(LEADER_PATH)
-        createDirectory(SREPLICA_PATH)
+        // Leader and synced replica.
+        createDirectory(Path.leader)
+        createDirectory(Path.synced)
 
         // Multi directories.
-        createDirectory(REPLICAS_PATH)
-        createDirectory(CHANGES_PATH)
+        createDirectory(Path.replicas)
+        createDirectory(Path.changes)
     }
 
     private fun createDirectory(path: String) {
@@ -72,7 +64,7 @@ class Node (zooServers: String) : Watcher {
     // ----------------
 
     fun register() {
-        zk.create("$REPLICAS_PATH/${name()}", version.toString().toByteArray(), OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL, registerCb, null)
+        zk.create(Path.replicaPath(name()), version.toString().toByteArray(), OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL, registerCb, null)
     }
 
     private val registerCb = AsyncCallback.StringCallback { rc, path, ctx, name ->
@@ -96,7 +88,7 @@ class Node (zooServers: String) : Watcher {
     }
 
     private fun updateVersion() {
-        zk.setData("$REPLICAS_PATH/${name()}", version.toString().toByteArray(), version, updateVersionCb, null)
+        zk.setData(Path.replicaPath(name()), version.toString().toByteArray(), version, updateVersionCb, null)
     }
 
     private val updateVersionCb = AsyncCallback.StatCallback { rc, path, ctx, stat ->
@@ -117,22 +109,22 @@ class Node (zooServers: String) : Watcher {
     }
 
     // ----------------
-    // Synchronized replica election.
+    // Synced replica election.
     // ----------------
-    // Nodes usually try to run for synchronized replica first. After that, they try to take the leader
+    // Nodes usually try to run for synced replica first. After that, they try to take the leader
     // role if the spot is available.
 
-    fun runForReplica() {
+    fun runForSynced() {
         ensureReplica {
-            zk.getData(SREPLICA_WATCH_PATH, false, runForReplicaCb, null)
+            zk.getData(Path.synced_name, false, runForSyncedCb, null)
         }
     }
 
-    private val runForReplicaCb = AsyncCallback.DataCallback { rc, path, ctx, data, stat ->
+    private val runForSyncedCb = AsyncCallback.DataCallback { rc, path, ctx, data, stat ->
         val ecode = KeeperException.Code.get(rc)
         when (ecode) {
             KeeperException.Code.CONNECTIONLOSS -> {
-                runForReplica()
+                runForSynced()
             }
             KeeperException.Code.OK -> {
                 if (String(data) == name()) {
@@ -140,7 +132,7 @@ class Node (zooServers: String) : Watcher {
                     runForLeader()
                 } else {
                     type = NodeType.REPLICA
-                    watchReplica()
+                    watchSynced()
                 }
             }
             KeeperException.Code.NONODE -> {
@@ -148,36 +140,36 @@ class Node (zooServers: String) : Watcher {
             }
             else -> {
                 logger.error {
-                    "Error running for synchronized replica: ${KeeperException.create(ecode)}"
+                    "Error running for synced replica: ${KeeperException.create(ecode)}"
                 }
             }
         }
     }
 
-    private fun watchReplica() {
+    private fun watchSynced() {
         ensureReplica {
-            zk.exists(SREPLICA_WATCH_PATH, watchReplicaWatcher, watchReplicaCb, null)
+            zk.exists(Path.synced_name, watchSyncedWatcher, watchSyncedCb, null)
         }
     }
 
-    private val watchReplicaWatcher = Watcher {
+    private val watchSyncedWatcher = Watcher {
         when (it.type) {
             Watcher.Event.EventType.NodeDeleted -> {
-                assert(SREPLICA_WATCH_PATH.equals(it.path))
-                runForReplica()
+                assert(Path.synced_name.equals(it.path))
+                runForSynced()
             }
         }
     }
 
-    private val watchReplicaCb = AsyncCallback.StatCallback { rc, path, ctx, stat ->
+    private val watchSyncedCb = AsyncCallback.StatCallback { rc, path, ctx, stat ->
         val ecode = KeeperException.Code.get(rc)
         when (ecode) {
             KeeperException.Code.CONNECTIONLOSS -> {
-                watchReplica()
+                watchSynced()
             }
             KeeperException.Code.OK -> {
                 if (stat == null) {
-                    runForReplica()
+                    runForSynced()
                 }
             }
             else -> {
@@ -188,7 +180,7 @@ class Node (zooServers: String) : Watcher {
 
     private fun checkCandidacy() {
         ensureReplica {
-            zk.getChildren(REPLICAS_PATH, false, checkCandidacyCb, null)
+            zk.getChildren(Path.replicas, false, checkCandidacyCb, null)
         }
     }
 
@@ -202,7 +194,7 @@ class Node (zooServers: String) : Watcher {
                 if (bestCandidate(children) == name()) {
                     takeReplica()
                 } else {
-                    runForReplica()
+                    runForSynced()
                 }
             }
             else -> {
@@ -215,7 +207,7 @@ class Node (zooServers: String) : Watcher {
 
     private fun bestCandidate(candidates: List<String>): String? {
         return candidates.map {
-            val version = String(getData("$REPLICAS_PATH/$it") ?: byteArrayOf()).toIntOrNull() ?: -1
+            val version = String(getData(Path.replicaPath(it)) ?: byteArrayOf()).toIntOrNull() ?: -1
             Pair(it, version)
         }.maxBy { it.second }?.first
     }
@@ -223,9 +215,9 @@ class Node (zooServers: String) : Watcher {
     private fun takeReplica() {
         ensureReplica {
             zk.multi(listOf(
-                    Op.create("$SREPLICA_PATH/name", name().toByteArray(), OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL),
-                    Op.create("$SREPLICA_PATH/version", version.toString().toByteArray(), OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL),
-                    Op.delete("$REPLICAS_PATH/${name()}", -1)
+                    Op.delete(Path.replicaPath(name()), -1),
+                    Op.create(Path.synced_name, name().toByteArray(), OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL),
+                    Op.create(Path.synced_version, version.toString().toByteArray(), OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL)
             ), takeReplicaCb, null)
         }
     }
@@ -238,14 +230,14 @@ class Node (zooServers: String) : Watcher {
             }
             KeeperException.Code.OK -> {
                 type = NodeType.SYNCHRONIZED_REPLICA
-                logger.info { "Node ${name()} is now the synchronized replica." }
+                logger.info { "${name()} is now the synced replica." }
                 runForLeader()
             }
             KeeperException.Code.NODEEXISTS -> {
-                runForReplica()
+                runForSynced()
             }
             else -> {
-                logger.error { "Error taking role of synchronized replica: ${KeeperException.create(ecode)}" }
+                logger.error { "Error taking role of synced replica on ${name()}: ${KeeperException.create(ecode)}" }
             }
         }
     }
@@ -254,9 +246,9 @@ class Node (zooServers: String) : Watcher {
     // Leader election.
     // ----------------
 
-    private fun runForLeader() {
-        ensureSynchronized {
-            zk.getData(LEADER_WATCH_PATH, false, runForLeaderCb, null)
+    fun runForLeader() {
+        ensureSynced {
+            zk.getData(Path.leader_name, false, runForLeaderCb, null)
         }
     }
 
@@ -283,15 +275,15 @@ class Node (zooServers: String) : Watcher {
     }
 
     private fun watchLeader() {
-        ensureSynchronized {
-            zk.exists(LEADER_WATCH_PATH, watchLeaderWatch, watchLeaderCb, null)
+        ensureSynced {
+            zk.exists(Path.leader_name, watchLeaderWatch, watchLeaderCb, null)
         }
     }
 
     private val watchLeaderWatch = Watcher {
         when (it.type) {
             Watcher.Event.EventType.NodeDeleted -> {
-                assert(LEADER_WATCH_PATH.equals(it.path))
+                assert(Path.leader_name.equals(it.path))
                 runForLeader()
             }
         }
@@ -308,9 +300,6 @@ class Node (zooServers: String) : Watcher {
                     runForLeader()
                 }
             }
-            KeeperException.Code.NODEEXISTS -> {
-                logger.warn { "Leader already elected." }
-            }
             else -> {
                 logger.error {
                     "Error checking for leader existence: ${KeeperException.create(ecode)}"
@@ -320,12 +309,12 @@ class Node (zooServers: String) : Watcher {
     }
 
     private fun takeLeader() {
-        ensureSynchronized {
+        ensureSynced {
             zk.multi(listOf(
-                    Op.delete("$SREPLICA_PATH/name", -1),
-                    Op.delete("$SREPLICA_PATH/version", -1),
-                    Op.create("$LEADER_PATH/name", name().toByteArray(), OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL),
-                    Op.create("$LEADER_PATH/version", version.toString().toByteArray(), OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL)
+                    Op.delete(Path.synced_name, -1),
+                    Op.delete(Path.synced_version, -1),
+                    Op.create(Path.leader_name, name().toByteArray(), OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL),
+                    Op.create(Path.leader_version, version.toString().toByteArray(), OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL)
             ), takeLeaderCb, null)
         }
     }
@@ -338,13 +327,13 @@ class Node (zooServers: String) : Watcher {
             }
             KeeperException.Code.OK -> {
                 type = NodeType.LEADER
-                logger.info { "Node ${name()} is now the leader." }
+                logger.info { "${name()} is now the leader." }
             }
             KeeperException.Code.NODEEXISTS -> {
                 runForLeader()
             }
             else -> {
-                logger.error { "Error taking role of leader: ${KeeperException.create(ecode)}" }
+                logger.error { "Error taking role of leader on ${name()}: ${KeeperException.create(ecode)}" }
             }
         }
     }
@@ -354,13 +343,13 @@ class Node (zooServers: String) : Watcher {
     // ----------------
 
     fun countReplicas() {
-        zk.getChildren(REPLICAS_PATH, countReplicasWatcher, countReplicasCb, null)
+        zk.getChildren(Path.replicas, countReplicasWatcher, countReplicasCb, null)
     }
 
     private val countReplicasWatcher = Watcher {
         when (it.type) {
             Watcher.Event.EventType.NodeChildrenChanged -> {
-                assert(REPLICAS_PATH.equals(it.path))
+                assert(Path.replicas.equals(it.path))
                 countReplicas()
             }
         }
@@ -409,14 +398,14 @@ class Node (zooServers: String) : Watcher {
     }
 
     /**
-     * Makes sure the current node is a synchronized replica
+     * Makes sure the current node is a synced replica
      * before running the supplied callback.
      */
-    private fun ensureSynchronized(f: () -> Unit) {
+    private fun ensureSynced(f: () -> Unit) {
         if (type == NodeType.SYNCHRONIZED_REPLICA) {
             f()
         } else if (type == NodeType.REPLICA) {
-            runForReplica()
+            runForSynced()
         }
     }
 
@@ -440,35 +429,6 @@ class Node (zooServers: String) : Watcher {
             }
         }
         return null
-    }
-
-    /**
-     * Creates an ephemeral parameter of the replica.
-     */
-    private fun createParam(path: String, data: ByteArray) {
-        zk.create(path, data, OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL, createParamCb, Pair(path, data))
-    }
-
-    private val createParamCb = AsyncCallback.StringCallback { rc, path, ctx, name ->
-        val ecode = KeeperException.Code.get(rc)
-        val pair = ctx as Pair<String, ByteArray>
-        when (ecode) {
-            KeeperException.Code.CONNECTIONLOSS -> {
-                createParam(pair.first, pair.second)
-            }
-            KeeperException.Code.OK -> {
-                logger.info { "Parameter created $path." }
-            }
-            KeeperException.Code.NODEEXISTS -> {
-                logger.warn { "Parameter already exists $path." }
-            }
-            else -> {
-                logger.error {
-                    "Error creating parameter $path: ${KeeperException.create(ecode)}"
-                }
-            }
-        }
-
     }
 
     // ----------------
