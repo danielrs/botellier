@@ -22,6 +22,7 @@ dependencies {
 
     compile group: "org.apache.zookeeper", name: "zookeeper", version: "3.4.10"
     compile 'io.github.microutils:kotlin-logging:1.4.5'
+    compile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.25'
 
     testCompile 'junit:junit:4.12'
     testCompile "org.jetbrains.kotlin:kotlin-test:$kotlin_version"
