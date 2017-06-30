@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/danielrs/botellier.svg?branch=master)](https://travis-ci.org/danielrs/botellier)
+[![Build Status](https://travis-ci.org/danielrs/botellier.svg?branch=replication)](https://travis-ci.org/danielrs/botellier)
 
 ## Botellier
 
