@@ -1,8 +1,20 @@
+[zookeeper]: https://github.com/apache/zookeeper
+
 [![Build Status](https://travis-ci.org/danielrs/botellier.svg?branch=replication)](https://travis-ci.org/danielrs/botellier)
 
 ## Botellier
 
 A distributed key-value data store. It aims to be a simple Redis clone for the JVM.
+
+### Replication Scheme
+
+Single-leader replication scheme is used. More specifically, a semi-synchronous replication scheme, where one node is the leader, another node is synchronously replicated to keep up with the leader, and the rest of the nodes are asynchronously replicated.
+
+When the leader dies, the synced replica takes its place; when the synced replica dies or becomes leader, the most up-to-date asynchronous node takes the spot of the synced replica. Here's a flowchart that shows the election proccess:
+
+![Flowchart](https://raw.githubusercontent.com/danielrs/botellier/master/doc/leader_election_flowchart.png)
+
+Coordination between proccesses is done using [Zookeper][zookeeper].
 
 ### Command support
 
