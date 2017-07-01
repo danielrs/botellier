@@ -8,11 +8,17 @@ A distributed key-value data store. It aims to be a simple Redis clone for the J
 
 ### Replication Scheme
 
-Single-leader replication scheme is used. More specifically, a semi-synchronous replication scheme, where one node is the leader, another node is synchronously replicated to keep up with the leader, and the rest of the nodes are asynchronously replicated.
+To keep things simple, Botellier uses single-leader replication. Each replica is a whole copy of the leader, and no sharding/partitioning is used.
 
-When the leader dies, the synced replica takes its place; when the synced replica dies or becomes leader, the most up-to-date asynchronous node takes the spot of the synced replica. Here's a flowchart that shows the election proccess:
+All the nodes that form the quorum can be either three types: `leader`, `synced replica` or `replica`. All writes request go through the leader, who waits for the synced replica to proccess the same requests before returning to the client. All other replicas process the requests asynchronously.
 
-![Flowchart](https://raw.githubusercontent.com/danielrs/botellier/master/doc/leader_election_flowchart.png)
+#### Election process
+
+Initially, all nodes are of type `replica` which then try to become the `synced replica`, usually the most up-to-date node is the one to do it. After that, the only node that can become a `leader` is a synced replica; so in the event that the leader dies, the synced replica automatically becomes the leader, and the next most up-to-date common replica takes its place.
+
+Here's a flowchart that shows the process:
+
+![Flowchart](https://raw.githubusercontent.com/danielrs/botellier/replication/doc/leader_election_flowchart.png)
 
 Coordination between proccesses is done using [Zookeper][zookeeper].
 
