@@ -1,11 +1,13 @@
 package org.botellier.server
 
+import org.botellier.log.Log
 import org.botellier.store.Store
 import java.net.ServerSocket
 import java.util.concurrent.Executor
 
 class Server(val port: Int = 6679, val password: String? = null, dbTotal: Int = 15) {
-    val dbs: List<Store> = List(dbTotal, { Store() })
+    val dbs = List(dbTotal, { Store() })
+    val log = Log("./", clear = true)
 
     private val executor = HandlerExecutor()
     private val dispatcher = RequestDispatcher(this)

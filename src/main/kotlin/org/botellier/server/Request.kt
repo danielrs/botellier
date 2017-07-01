@@ -10,6 +10,7 @@ class RequestDispatcher(val server: Server) {
         val writer = request.client.socket.getOutputStream()
         val isAuthenticated = !server.requiresPassword() || request.client.isAuthenticated
         try {
+            server.log.append(request.command.name, request.command.toString().toByteArray())
             when {
                 request.command is AuthCommand -> {
                     val result = request.command.execute(server, request.client)
