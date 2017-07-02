@@ -12,7 +12,7 @@ import java.nio.file.Paths
  */
 class Segment(val root: String, val sequence: Int, val prefix: String = "segment-", val maxSize: Long = 1*1024*1024) {
     val path = Paths.get(root, name()).toAbsolutePath().normalize()
-    val file = File(path.toUri())
+    private val file = File(path.toUri())
 
     /**
      * Returns the name of the segments.
@@ -24,6 +24,11 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      * Returns the next segment in the sequence.
      */
     fun nextSegment() = Segment(root,sequence + 1, prefix, maxSize)
+
+    /**
+     * Clears all the content of this segment.
+     */
+    fun clear() = file.delete()
 
     /**
      * Appends a new entry to the log file indicating

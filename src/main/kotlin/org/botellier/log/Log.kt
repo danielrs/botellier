@@ -32,12 +32,20 @@ class Log(root: String = "./", val segmentSize: Int = 1*1024*1024, clear: Boolea
         segments = findSegments().toMutableList()
 
         if (clear) {
-            segments.map { it.file.delete() }
+            segments.map { it.clear() }
         }
 
         if (segments.size <= 0) {
             segments.add(Segment(path.toString(), 0))
         }
+    }
+
+    /**
+     * Traverses each one of the entries. It stops if the supplied
+     * callback returns false.
+     */
+    fun traverse(f: (Entry) -> Boolean) {
+        TODO("Implement traverse")
     }
 
     /**
@@ -75,7 +83,6 @@ class Log(root: String = "./", val segmentSize: Int = 1*1024*1024, clear: Boolea
         return folder.listFiles()
                 .filter { it.isFile && regex.matches(it.name) }
                 .map { it.name.split("-") }
-                .map { println(it); it }
                 .map { Pair(it[0], it[1].toInt()) }
                 .sortedBy { it.second }
                 .map { Segment(path.toString(), it.second) }
