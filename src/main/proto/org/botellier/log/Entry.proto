@@ -1,0 +1,34 @@
+syntax = "proto3";
+package org.botellier.log;
+option java_outer_classname = "EntryProtos";
+
+message Entry {
+    uint32 id = 1;
+    oneof payload {
+        ActionDelete actionDelete = 2;
+        ActionSet actionSet = 3;
+        ActionTransactionBegin actionTransactionBegin = 4;
+        ActionTransactionEnd actionTransactionEnd = 5;
+    }
+}
+
+// ----------------
+// Actions of an entry
+// ----------------
+
+message ActionDelete {
+    string key = 1;
+}
+
+message ActionSet {
+    string key = 1;
+    bytes before = 2;
+    bytes after = 3;
+}
+
+message ActionTransactionBegin {
+}
+
+message ActionTransactionEnd {
+}
+
