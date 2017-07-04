@@ -1,34 +1,37 @@
 package org.botellier.log
 
+import com.google.protobuf.ByteString
 import org.junit.Assert
 import org.junit.Test
 
 class EntryTest {
-    val CR = '\r'.toByte()
-    val LF = '\n'.toByte()
-
-    val entry = Entry(0, EntryMarker.NONE, "None", "None".toByteArray())
-    val entryBytes = byteArrayOf(
-             0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 4,
-            78, 111, 110, 101,
-            0, 0, 0, 4,
-            78, 111, 110, 101,
-            CR, LF
-    )
-
     @Test
-    fun serializeEntry() {
-        Assert.assertArrayEquals(entryBytes, entry.toByteArray())
+    fun buildingDeleteEntry() {
+        val entry = buildDeleteEntry(0) {
+            this.key = "key"
+        }
+        Assert.assertTrue(entry is DeleteEntry)
     }
 
     @Test
-    fun readInputStream() {
-        val parsedEntry = Entry.read(entryBytes.inputStream())
-        Assert.assertEquals(entry.id, parsedEntry.id)
-        Assert.assertEquals(entry.marker, parsedEntry.marker)
-        Assert.assertEquals(entry.key, parsedEntry.key)
-        Assert.assertArrayEquals(entry.data, parsedEntry.data)
+    fun buildingSetEntry() {
+        val entry = buildSetEntry(0) {
+            this.key = "key"
+            this.before = ByteString.copyFrom(byteArrayOf(48, 49, 50))
+            this.after = ByteString.copyFrom(byteArrayOf(51, 52, 53))
+        }
+        Assert.assertTrue(entry is SetEntry)
+    }
+
+    @Test
+    fun buildingBeginTransactionEntry() {
+        val entry = buildBeginTransactionEntry(0) {}
+        Assert.assertTrue(entry is BeginTransactionEntry)
+    }
+
+    @Test
+    fun buildingEndTransactionEntry() {
+        val entry = buildEndTransactionEntry(0) {}
+        Assert.assertTrue(entry is EndTransactionEntry)
     }
 }

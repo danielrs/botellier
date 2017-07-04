@@ -4,31 +4,31 @@ option java_outer_classname = "EntryProtos";
 
 message Entry {
     uint32 id = 1;
-    oneof payload {
-        ActionDelete actionDelete = 2;
-        ActionSet actionSet = 3;
-        ActionTransactionBegin actionTransactionBegin = 4;
-        ActionTransactionEnd actionTransactionEnd = 5;
+    oneof entry_type {
+        DeleteEntry delete_entry = 2;
+        SetEntry set_entry = 3;
+        BeginTransactionEntry begin_trasaction_entry = 4;
+        EndTransactionEntry end_transaction_entry = 5;
     }
 }
 
 // ----------------
-// Actions of an entry
+// Entry types.
 // ----------------
 
-message ActionDelete {
+message DeleteEntry {
     string key = 1;
 }
 
-message ActionSet {
+message SetEntry {
     string key = 1;
     bytes before = 2;
     bytes after = 3;
 }
 
-message ActionTransactionBegin {
+message BeginTransactionEntry {
 }
 
-message ActionTransactionEnd {
+message EndTransactionEntry {
 }
 

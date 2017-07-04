@@ -1,9 +1,0 @@
-syntax = "proto3";
-package org.botellier.log;
-option java_outer_classname = "SegmentProtos";
-
-import "org/botellier/log/Entry.proto";
-
-message Segment {
-    repeated Entry entries = 1;
-}

@@ -17,38 +17,61 @@ class SegmentTest {
 
     @Test(expected = SegmentException::class)
     fun maxSize() {
+        val before = "before".toByteArray()
+        val after = "after".toByteArray()
         segment(24) {
-            it.append(0, "None", "None".toByteArray())
-            it.append(0, "None", "None".toByteArray())
+            it.set(0, "none", before, after)
+            it.set(0, "none", before, after)
         }
     }
 
     @Test
-    fun appendingAndIterating() {
-        val entries = listOf<Entry>(
-                Entry(0, EntryMarker.NONE, "One", "One".toByteArray()),
-                Entry(1, EntryMarker.DELETE, "One", byteArrayOf()),
-                Entry(2, EntryMarker.NONE, "Two", "Two".toByteArray()),
-                Entry(3, EntryMarker.DELETE, "Two", byteArrayOf()),
-                Entry(4, EntryMarker.NONE, "Three", "Three".toByteArray()),
-                Entry(5, EntryMarker.DELETE, "Three", byteArrayOf())
-        )
-
+    fun iterating() {
         segment(200) {
-            it.append(0, "One", "One".toByteArray())
-            it.delete(1, "One")
-            it.append(2, "Two", "Two".toByteArray())
-            it.delete(3, "Two")
-            it.append(4, "Three", "Three".toByteArray())
-            it.delete(5, "Three")
+            val oneBytes = "one".toByteArray()
+            val twoBytes = "two".toByteArray()
+            val threeBytes = "three".toByteArray()
 
-            for (entry in it) {
-                println(entry)
-//                Assert.assertEquals(entries[entry.id].id, entry.id)
-//                Assert.assertEquals(entries[entry.id].marker, entry.marker)
-//                Assert.assertEquals(entries[entry.id].key, entry.key)
-//                Assert.assertArrayEquals(entries[entry.id].data, entry.data)
-            }
+            it.set(0, "one", oneBytes, oneBytes)
+            it.delete(1, "one")
+            it.set(2, "two", twoBytes, twoBytes)
+            it.delete(3, "two")
+            it.set(4, "three", threeBytes, threeBytes)
+            it.delete(5, "three")
+
+            val res = it.fold(Pair(0, ""), { (sum, str), entry ->
+                var key = ""
+
+                if (entry is DeleteEntry) {
+                    key = entry.key
+                } else if (entry is SetEntry) {
+                    key = entry.key
+                }
+
+                Pair(sum + entry.id, str + key)
+            })
+
+            Assert.assertEquals(Pair(15, "oneonetwotwothreethree"), res)
+        }
+    }
+
+    @Test
+    fun createAndSetEntries() {
+        segment(200) {
+            it.create(0, "zero", "0".toByteArray())
+            it.create(1, "one", "1".toByteArray())
+            it.set(2, "zero", "0".toByteArray(), "zero".toByteArray())
+            it.set(3, "one", "1".toByteArray(), "one".toByteArray())
+
+            val res = it.fold("", { str, entry ->
+                if (entry is SetEntry) {
+                    str + String(entry.before) + String(entry.after)
+                } else {
+                    str
+                }
+            })
+
+            Assert.assertEquals("010zero1one", res)
         }
     }
 }

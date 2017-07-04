@@ -13,10 +13,10 @@ import java.nio.file.Paths
  * @property path The base directory that holds all the logs.
  * @property id an monotonic increasing value that changes each time an entry is added.
  */
-class Log(root: String = "./", val segmentSize: Int = 2*1024*1024, clear: Boolean = false)
+class Log(root: String = "./", val segmentPrefix: String = "segment-", val segmentSize: Int = 2*1024*1024, clear: Boolean = false)
     : Iterable<Entry> {
     val path: Path
-    var id: Long private set
+    var id: Int private set
 
     val segments: MutableList<Segment>
 
@@ -37,66 +37,108 @@ class Log(root: String = "./", val segmentSize: Int = 2*1024*1024, clear: Boolea
         segments = findSegments().toMutableList()
         id = findId(segments)
 
-        if (clear) {
-            segments.map { it.clear() }
-            segments.clear()
-        }
-
+        if (clear) { this.clear() }
         if (segments.size <= 0) {
-            segments.add(Segment(path.toString(), 0, maxSize = segmentSize))
+            segments.add(Segment(path.toString(), 0, segmentPrefix, segmentSize))
         }
     }
 
     /**
-     * Appends a data entry to the underlying segment.
-     * @see Segment
+     * Clears the segment files for this log.
      */
-    fun append(key: String, data: ByteArray) {
-        try {
-            segments.last().append(id.toInt(), key, data)
-            id++
-        } catch(e: SegmentException) {
-            segments.add(segments.last().nextSegment())
-            append(key, data)
-        }
-    }
-
-    /**
-     * Appends a deletion entry to the underlying segment.
-     * @see Segment
-     */
-    fun delete(key: String) {
-        try {
-            segments.last().delete(id.toInt(), key)
-            id++
-        } catch(e: SegmentException) {
-            segments.add(segments.last().nextSegment())
-            delete(key)
-        }
+    fun clear() {
+        segments.map { it.clear() }
+        segments.clear()
     }
 
     /**
      * Finds existing segments in the given path.
      */
-    private fun findSegments(): List<Segment> {
-        val regex = Regex("^segment-(\\d+)$")
+    fun findSegments(): List<Segment> {
+        val regex = Regex("^($segmentPrefix)(\\d+)$")
         val folder = File(path.toUri())
         return folder.listFiles()
                 .filter { it.isFile && regex.matches(it.name) }
-                .map { it.name.split("-") }
-                .map { Pair(it[0], it[1].toInt()) }
+                .map { regex.find(it.name)!! }
+                .map { Pair(it.groupValues[1], it.groupValues[2].toInt()) }
                 .sortedBy { it.second }
-                .map { Segment(path.toString(), it.second) }
+                .map { Segment(path.toString(), it.second, segmentPrefix, segmentSize) }
     }
 
     /**
      * Finds the best id value based on the given segments.
      */
-    private fun findId(segments: List<Segment>): Long {
+    private fun findId(segments: List<Segment>): Int {
         if (segments.isEmpty()) {
             return 0
         } else {
             return 0
+        }
+    }
+
+    // ----------------
+    // Entry operations.
+    // ----------------
+
+    private fun segmentOperation(f: (Int, Segment) -> Unit) {
+        try {
+            f(id, segments.last())
+            id++
+        } catch (e: SegmentException) {
+            segments.add(segments.last().nextSegment())
+            segmentOperation(f)
+        }
+    }
+
+    /**
+     * Appends a deletion entry to the underlying segment.
+     * @see Segment.delete
+     */
+    fun delete(key: String) {
+        segmentOperation { id, segment ->
+            segment.delete(id, key)
+        }
+    }
+
+    /**
+     * Appends a data entry to the underlying segment.
+     * @see Segment.set
+     */
+    fun set(key: String, before: ByteArray, after: ByteArray) {
+        segmentOperation { id, segment ->
+            segment.set(id, key, before, after)
+        }
+    }
+
+    /**
+     * Appends a data entry to the underlying segment.
+     * @see Segment.create
+     */
+    fun create(key: String, data: ByteArray) {
+        segmentOperation { id, segment ->
+            segment.create(id, key, data)
+        }
+    }
+
+    /**
+     * Appends a new entry to the log indicating
+     * the beginning of a transaction.
+     * @see Segment.beginTransaction
+     */
+    fun beginTransaction(id: Int) {
+        segmentOperation { id, segment ->
+            segment.beginTransaction(id)
+        }
+    }
+
+    /**
+     * Appends a new entry to the log indicating
+     * the end of a transaction.
+     * @see Segment.endTransaction
+     */
+    fun endTransaction(id: Int) {
+        segmentOperation { id, segment ->
+            segment.endTransaction(id)
         }
     }
 
