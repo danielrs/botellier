@@ -29,6 +29,10 @@ compileKotlin {
     dependsOn ':generateProto'
 }
 
+sourceSets {
+    main.java.srcDirs += "${protobuf.generatedFilesBaseDir}/main/java"
+}
+
 idea {
     module {
         sourceDirs += file("${protobuf.generatedFilesBaseDir}/main/java")
