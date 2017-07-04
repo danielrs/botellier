@@ -5,13 +5,15 @@ import org.junit.Assert
 
 class SegmentTest {
     fun segment(maxSize: Int = 1*1024*1024, f: (Segment) -> Unit) {
-        val s = Segment("./run", 0, "test-tmp-segment-", maxSize)
-        try {
-            f(s)
-        } catch (e: Throwable) {
-            throw e
-        } finally {
-            s.clear()
+        withDummy {
+            val s = Segment(it.toString(), 0, "test-tmp-segment-", maxSize)
+            try {
+                f(s)
+            } catch (e: Throwable) {
+                throw e
+            } finally {
+                s.clear()
+            }
         }
     }
 
