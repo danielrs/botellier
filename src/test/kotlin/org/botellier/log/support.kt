@@ -12,12 +12,16 @@ fun withDummy(n: Int = 0, cb: (File) -> Unit) {
     var folder = getFolderName()
     folder.mkdir()
 
-    for (i in 0..n-1) {
-        File(folder, "test-segment-$i").createNewFile()
+    try {
+        for (i in 0..n - 1) {
+            File(folder, "test-segment-$i").createNewFile()
+        }
+        cb(folder)
+    } catch (e: Throwable) {
+        throw e
+    } finally {
+        folder.delete()
     }
-
-    cb(folder)
-    folder.delete()
 }
 
 /**
