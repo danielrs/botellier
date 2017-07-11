@@ -19,9 +19,9 @@ interface WriteStore {
 }
 
 /**
- * Wrapper class that returns all changes made to map in a wrapper "transaction"
- * class 'StoreChange'. None of the changes made are applied unless the user
- * "commits" the store change returned by each one of the methods.
+ * Store class with getter method for key/values. The only
+ * way to add/modify the stored values is through a transaction.
+ * @see StoreTransaction
  */
 class Store(initialMap: MapValue = MapValue()) : ReadStore, WriteStore {
     private val map = initialMap
@@ -30,10 +30,20 @@ class Store(initialMap: MapValue = MapValue()) : ReadStore, WriteStore {
     override val keys get() = map.unwrap().keys
     override val size  get() = map.size
 
+    /**
+     * Gets the value of the given key.
+     * @param key the key to lookup.
+     * @returns the value or NilValue if key is not found.
+     */
     override fun get(key: String): StoreValue {
         return map.unwrap().get(key) ?: NilValue()
     }
 
+    /**
+     * Returns a StoreTransaction instance that allows
+     * modification of this store.
+     * @returns the StoreTransaction instance.
+     */
     override fun transaction(): StoreTransaction {
         return StoreTransaction(map)
     }
