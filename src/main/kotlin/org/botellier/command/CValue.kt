@@ -36,15 +36,15 @@ sealed class CValue {
                 this is Int && other is Int ->
                     this.value == other.value
                 this is Int && other is IntValue ->
-                    this.value == other.value
+                    this.value == other.unwrap()
                 this is Float && other is Float ->
                     this.value == other.value
                 this is Float && other is FloatValue ->
-                    this.value == other.value
+                    this.value == other.unwrap()
                 this is String && other is String ->
                     this.value == other.value
                 this is String && other is StringValue ->
-                    this.value == other.value
+                    this.value == other.unwrap()
                 else -> false
             }
         }

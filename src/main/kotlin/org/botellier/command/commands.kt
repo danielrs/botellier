@@ -208,7 +208,7 @@ class LIndexCommand : ReadStoreCommand() {
     override fun run(store: ReadStore): StoreValue {
         return requireValue<ListValue>(store, key.value) {
             if (index.value >= 0 && index.value <= it.size - 1) {
-                it.list.get(index.value)
+                it.unwrap().get(index.value)
             }
             else {
                 NilValue()
@@ -333,7 +333,7 @@ class LRangeCommand : ReadStoreCommand() {
 
     override fun run(store: ReadStore): StoreValue {
         return requireValue<ListValue>(store, key.value) {
-            it.list.slice(start.value, stop.value).toValue()
+            it.unwrap().slice(start.value, stop.value).toValue()
         }
     }
 }
@@ -479,13 +479,13 @@ class AppendCommand : StoreCommand() {
         val updated = transaction.mupdate<StringValue>(key.value) {
             val builder = StringBuilder()
             if (it != null) {
-                builder.append(it.value)
+                builder.append(it.unwrap())
             }
             builder.append(value.toString())
             builder.toString().toValue()
         }
 
-        return (updated as StringValue).value.length.toValue()
+        return (updated as StringValue).unwrap().length.toValue()
     }
 }
 
@@ -623,7 +623,7 @@ class StrlenCommand : ReadStoreCommand() {
     override fun run(store: ReadStore): StoreValue {
         return withValue<StringValue>(store, key.value) {
             if (it != null) {
-                IntValue(it.value.length)
+                IntValue(it.unwrap().length)
             }
             else {
                 IntValue(0)
@@ -639,8 +639,8 @@ class StrlenCommand : ReadStoreCommand() {
 private fun transactionIncr(transaction: StoreTransaction, key: String, incr: Int): StoreValue {
     return transaction.mupdate<StoreNumber>(key) {
         when (it) {
-            is IntValue -> IntValue(it.value + incr)
-            is FloatValue -> FloatValue(it.value + incr.toFloat())
+            is IntValue -> IntValue(it.unwrap() + incr)
+            is FloatValue -> FloatValue(it.unwrap() + incr.toFloat())
             else -> IntValue(incr)
         }
     }
@@ -649,8 +649,8 @@ private fun transactionIncr(transaction: StoreTransaction, key: String, incr: In
 private fun transactionIncrFloat(transaction: StoreTransaction, key: String, incr: Double): StoreValue {
     return transaction.mupdate<StoreNumber>(key) {
         when (it) {
-            is IntValue -> FloatValue(it.value.toFloat() + incr)
-            is FloatValue -> FloatValue(it.value + incr)
+            is IntValue -> FloatValue(it.unwrap().toFloat() + incr)
+            is FloatValue -> FloatValue(it.unwrap() + incr)
             else -> FloatValue(incr)
         }
     }

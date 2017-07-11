@@ -16,8 +16,8 @@ class JsonSerializer(override val value: StoreType,
 
     private fun render(builder: StringBuilder, indent: String, value: StoreType) {
         when (value) {
-            is IntValue -> builder.append(value.value)
-            is FloatValue -> builder.append(value.value)
+            is IntValue -> builder.append(value.unwrap())
+            is FloatValue -> builder.append(value.unwrap())
             is StringValue -> builder.append("\"$value\"")
             is NilValue -> {} // skips nil
             is ListValue -> renderList(builder, indent, value)

@@ -67,7 +67,7 @@ class StoreValueTest {
         var res = 0
         for (value in list) {
             when (value) {
-                is IntValue -> res += value.value
+                is IntValue -> res += value.unwrap()
             }
         }
         Assert.assertEquals(res, 6)
@@ -89,7 +89,7 @@ class StoreValueTest {
         var res = 0
         for ((_, value) in map) {
             when (value) {
-                is IntValue -> res += value.value
+                is IntValue -> res += value.unwrap()
             }
         }
         Assert.assertEquals(res, 3)
@@ -102,9 +102,9 @@ class StoreValueTest {
             it[2] = "3".toValue()
         }
 
-        Assert.assertEquals((list.list.get(0) as IntValue).value, 1)
-        Assert.assertEquals((list.list.get(1) as FloatValue).value, 2.0, 0.001)
-        Assert.assertEquals((list.list.get(2) as StringValue).value, "3")
+        Assert.assertEquals((list.unwrap().get(0) as IntValue).unwrap(), 1)
+        Assert.assertEquals((list.unwrap().get(1) as FloatValue).unwrap(), 2.0, 0.001)
+        Assert.assertEquals((list.unwrap().get(2) as StringValue).unwrap(), "3")
     }
 
     @Test
@@ -114,14 +114,14 @@ class StoreValueTest {
             it.remove(listOf(0, 0, 1, 1, 2, 3, 4, 5, 6))
         }
         Assert.assertEquals(1, list.size)
-        Assert.assertEquals(IntValue(9), list.list.first())
+        Assert.assertEquals(IntValue(9), list.unwrap().first())
     }
 
     @Test
     fun slicingList() {
         val list = listOf(1, 2, 3).map(Int::toValue).toValue()
-        Assert.assertEquals(list.list.slice(0, 2).toList().map{ (it as IntValue).value }, listOf(1, 2, 3))
-        Assert.assertEquals(list.list.slice(0, 1).toList().map{ (it as IntValue).value }, listOf(1, 2))
-        Assert.assertEquals(list.list.slice(-3, 2).toList().map{ (it as IntValue).value }, listOf(1, 2, 3))
+        Assert.assertEquals(list.unwrap().slice(0, 2).toList().map{ (it as IntValue).unwrap() }, listOf(1, 2, 3))
+        Assert.assertEquals(list.unwrap().slice(0, 1).toList().map{ (it as IntValue).unwrap() }, listOf(1, 2))
+        Assert.assertEquals(list.unwrap().slice(-3, 2).toList().map{ (it as IntValue).unwrap() }, listOf(1, 2, 3))
     }
 }

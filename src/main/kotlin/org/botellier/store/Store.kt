@@ -24,18 +24,18 @@ interface WriteStore {
  * "commits" the store change returned by each one of the methods.
  */
 class Store(initialMap: MapValue = MapValue()) : ReadStore, WriteStore {
-    private val store = initialMap
+    private val map = initialMap
     val log = Log()
 
-    override val keys get() = store.map.keys
-    override val size  get() = store.size
+    override val keys get() = map.unwrap().keys
+    override val size  get() = map.size
 
     override fun get(key: String): StoreValue {
-        return store.map.get(key) ?: NilValue()
+        return map.unwrap().get(key) ?: NilValue()
     }
 
     override fun transaction(): StoreTransaction {
-        return StoreTransaction(store)
+        return StoreTransaction(map)
     }
 }
 

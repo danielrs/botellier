@@ -42,7 +42,7 @@ class ByteSerializer(override val value: StoreType?) : Serializer {
     }
 
     private fun renderString(bos: ByteArrayOutputStream, value: StringValue) {
-        val bytes = value.value.toByteArray()
+        val bytes = value.unwrap().toByteArray()
         bos.write('$'.toInt())
         bos.write(bytes.size.toString().toByteArray())
         bos.write(NEWLINE)

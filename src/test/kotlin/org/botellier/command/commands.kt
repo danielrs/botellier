@@ -130,12 +130,12 @@ class CommandsTest {
         linsert.pivot = CValue.Primitive.Int(1)
         linsert.value = CValue.Primitive.Int(0)
         Assert.assertEquals(IntValue(4), linsert.execute(store))
-        Assert.assertEquals(IntValue(0), (store.get("list") as ListValue).list.get(0))
+        Assert.assertEquals(IntValue(0), (store.get("list") as ListValue).unwrap().get(0))
 
         linsert.position = CValue.Primitive.String("AFTER")
         linsert.value = CValue.Primitive.Float(1.5)
         Assert.assertEquals(IntValue(5), linsert.execute(store))
-        Assert.assertEquals(FloatValue(1.5), (store.get("list") as ListValue).list.get(2))
+        Assert.assertEquals(FloatValue(1.5), (store.get("list") as ListValue).unwrap().get(2))
     }
 
     @Test
@@ -177,7 +177,7 @@ class CommandsTest {
         lpush.value = CValue.Primitive.Int(1)
         lpush.rest = CValue.Array.Any(listOf(CValue.Primitive.Float(2.0), CValue.Primitive.String("three")))
         Assert.assertEquals(IntValue(3), lpush.execute(store))
-        Assert.assertEquals(IntValue(1), (store.get("new-list") as ListValue).list.last())
+        Assert.assertEquals(IntValue(1), (store.get("new-list") as ListValue).unwrap().last())
     }
 
     @Test
@@ -192,7 +192,7 @@ class CommandsTest {
         lrange.key = CValue.Primitive.String("list")
         lrange.start = CValue.Primitive.Int(-2)
         lrange.stop = CValue.Primitive.Int(2)
-        Assert.assertEquals(listOf(2, 3), (lrange.execute(store) as ListValue).toList().map { (it as IntValue).value })
+        Assert.assertEquals(listOf(2, 3), (lrange.execute(store) as ListValue).toList().map { (it as IntValue).unwrap() })
     }
 
     @Test
@@ -208,7 +208,7 @@ class CommandsTest {
         lrem.count = CValue.Primitive.Int(-2)
         lrem.value = CValue.Primitive.Int(1)
         Assert.assertEquals(IntValue(2), lrem.execute(store))
-        Assert.assertEquals(listOf(2, 2), (store.get("list") as ListValue).toList().map { (it as IntValue).value })
+        Assert.assertEquals(listOf(2, 2), (store.get("list") as ListValue).toList().map { (it as IntValue).unwrap() })
 
         store.transaction().begin {
             set("list", listOf(1, 1, 2, 2).map { it.toValue() }.toValue())
@@ -217,7 +217,7 @@ class CommandsTest {
         lrem.count = CValue.Primitive.Int(2)
         lrem.value = CValue.Primitive.Int(2)
         Assert.assertEquals(IntValue(2), lrem.execute(store))
-        Assert.assertEquals(listOf(1, 1), (store.get("list") as ListValue).toList().map { (it as IntValue).value })
+        Assert.assertEquals(listOf(1, 1), (store.get("list") as ListValue).toList().map { (it as IntValue).unwrap() })
     }
 
     @Test
@@ -233,7 +233,7 @@ class CommandsTest {
         lset.index = CValue.Primitive.Int(2)
         lset.value = CValue.Primitive.Int(3)
         Assert.assertEquals(StringValue("OK"), lset.execute(store))
-        Assert.assertEquals(IntValue(3), (store.get("list") as ListValue).list.get(2))
+        Assert.assertEquals(IntValue(3), (store.get("list") as ListValue).unwrap().get(2))
     }
 
     @Test
@@ -276,7 +276,7 @@ class CommandsTest {
         rpush.value = CValue.Primitive.Int(1)
         rpush.rest = CValue.Array.Any(listOf(CValue.Primitive.Float(2.0), CValue.Primitive.String("three")))
         Assert.assertEquals(IntValue(3), rpush.execute(store))
-        Assert.assertEquals(IntValue(1), (store.get("list") as ListValue).list.first())
+        Assert.assertEquals(IntValue(1), (store.get("list") as ListValue).unwrap().first())
     }
 
     // Strings.
@@ -364,7 +364,7 @@ class CommandsTest {
         mget.key = CValue.Primitive.String("zero")
         mget.rest = CValue.Array.String(listOf("one", "two").map(CValue.Primitive::String))
 
-        val list = (mget.execute(store) as ListValue).list
+        val list = (mget.execute(store) as ListValue).unwrap()
         Assert.assertEquals(NilValue(), list.get(0))
         Assert.assertEquals(IntValue(1), list.get(1))
         Assert.assertEquals(NilValue(), list.get(2))

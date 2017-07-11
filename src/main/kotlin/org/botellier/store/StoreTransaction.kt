@@ -5,10 +5,10 @@ package org.botellier.store
  * (except commit) are not applied directly, they are instead saved to a cache and applied
  * when calling commit.
  */
-class StoreTransaction(val initialStore: MapValue) {
-    val changes = mutableListOf<StoreChange>()
-    private val store = initialStore
-    val cache = initialStore.clone().map
+class StoreTransaction(initialStore: MapValue) {
+    private val changes = mutableListOf<StoreChange>()
+    private val map = initialStore.unwrap()
+    private val cache = initialStore.clone().unwrap()
 
     /**
      * Returns the value at the given key. This function doesn't really make any changes,
@@ -17,7 +17,7 @@ class StoreTransaction(val initialStore: MapValue) {
      * @returns the StoreValue in the underlying store.
      */
     fun get(key: String): StoreValue {
-        return cache.get(key) ?: NilValue()
+        return cache.get(key) ?: map.get(key) ?: NilValue()
     }
 
     /**
@@ -42,7 +42,7 @@ class StoreTransaction(val initialStore: MapValue) {
      * different type.
      */
     inline fun <reified T: StoreValue> update(key: String, block: (T) -> StoreValue): StoreValue {
-        val value = cache.get(key) ?: NilValue()
+        val value = get(key)
         if (value !is NilValue) {
             if (value is T) {
                 val nextValue = block(value)
@@ -57,14 +57,14 @@ class StoreTransaction(val initialStore: MapValue) {
     }
 
     /**
-     * Works just like updates, the only difference is that that the key to update
+     * Works just like update, the only difference is that that the key to update
      * may or may not exist already.
      * @param key the key to update.
      * @param block the lambda function that receives the nullable old value and returns the new value.
      * @throws StoreException.InvalidTypeException if the requested value is a different type.
      */
     inline fun <reified T: StoreValue> mupdate(key: String, block: (T?) -> StoreValue): StoreValue {
-        val value = cache.get(key) ?: NilValue()
+        val value = get(key)
         if (value !is NilValue) {
             if (value is T) {
                 val nextValue = block(value)
@@ -92,10 +92,31 @@ class StoreTransaction(val initialStore: MapValue) {
     }
 
     /**
-     * Begins a transaction that is automatically commited before returning.
+     * Begins a transaction block that is cleared before starting,
+     * and committed before returning. Useful for expressions like
+     * the following:
+     *
+     * ```
+     * transaction.begin {
+     *     set("one", IntValue(1))
+     *     set("two", IntValue(2))
+     * }
+     * ```
+     *
+     * Instead of:
+     *
+     * ```
+     * transaction.rollback()
+     * transaction.set("one", IntValue(1))
+     * transaction.set("two", IntValue(2))
+     * transaction.commit()
+     * ```
+     *
      * @param block the extension lambda
+     * @returns a reference to the same transaction in use.
      */
     fun begin(block: StoreTransaction.() -> Unit) {
+        this.rollback()
         this.block()
         this.commit()
     }
@@ -112,15 +133,23 @@ class StoreTransaction(val initialStore: MapValue) {
         for (change in changes) {
             when (change.action) {
                 StoreChange.Action.SET -> {
-                    store.map.set(change.key, change.after)
+                    map.set(change.key, change.after)
                 }
                 StoreChange.Action.DELETE -> {
-                    store.map.remove(change.key)
+                    map.remove(change.key)
                 }
             }
         }
 
         changes.clear()
+    }
+
+    /**
+     * Clears all the changes in the transaction.
+     */
+    fun rollback() {
+        this.changes.clear()
+        this.cache.clear()
     }
 
     /**
@@ -167,10 +196,10 @@ data class StoreChange(val action: Action, val key: String, val before: StoreVal
  */
 private fun StoreType.isEmpty(): Boolean {
     return when (this) {
-        is StringValue -> this.value.isEmpty()
-        is ListValue -> this.list.isEmpty()
-        is SetValue -> this.set.isEmpty()
-        is MapValue -> this.map.isEmpty()
+        is StringValue -> this.unwrap().isEmpty()
+        is ListValue -> this.unwrap().isEmpty()
+        is SetValue -> this.unwrap().isEmpty()
+        is MapValue -> this.unwrap().isEmpty()
         else -> false
     }
 }

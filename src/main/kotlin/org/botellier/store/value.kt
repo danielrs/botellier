@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Interface types, they serve the following purposes:
  *
  * - StoreType: The base type for primitives and collections.
+ * - StoreWrapper: Interface for types that wrap around another type.
  * - StoreValue: It is used to represent types that can be stored
  * in a map. Maps themselves are not children of StoreValue to
  * prevent nested collections.
@@ -18,8 +19,16 @@ import java.util.concurrent.ConcurrentHashMap
  */
 
 interface StoreType {
+    /**
+     * Clones this value (new object).
+     */
     fun clone(): StoreType
 }
+
+interface StoreWrapper<out T> {
+    fun unwrap(): T
+}
+
 interface StoreValue: StoreType {
     override fun clone(): StoreValue
 }
@@ -45,11 +54,13 @@ interface StoreCollection<out T> : StoreType, Iterable<T> {
  * Class that is inherited by all primitive types. It basically holds the field
  * for the underlying *immutable* value.
  */
-abstract class PrimitiveValue<T>(initialValue: T) : StorePrimitive, Comparable<PrimitiveValue<T>>
+abstract class PrimitiveValue<T>(initialValue: T) : StoreWrapper<T>, StorePrimitive, Comparable<PrimitiveValue<T>>
 where T : Comparable<T> {
-    val value: T = initialValue
+    private val value: T = initialValue
 
-    override abstract fun clone(): PrimitiveValue<*>
+    override abstract fun clone(): PrimitiveValue<T>
+
+    override fun unwrap() = value
 
     override fun equals(other: Any?): Boolean {
         return when (other) {
@@ -64,18 +75,18 @@ where T : Comparable<T> {
 }
 
 class IntValue(initialValue: Int = 0) : StoreNumber, PrimitiveValue<Int>(initialValue) {
-    override fun clone() = IntValue(value)
-    override fun toString() = value.toString()
+    override fun clone() = IntValue(unwrap())
+    override fun toString() = unwrap().toString()
 }
 
 class FloatValue(initialValue: Double = 0.0) : StoreNumber, PrimitiveValue<Double>(initialValue) {
-    override fun clone() = FloatValue(value)
-    override fun toString() = value.toString()
+    override fun clone() = FloatValue(unwrap())
+    override fun toString() = unwrap().toString()
 }
 
 class StringValue(initialValue: String = "") : PrimitiveValue<String>(initialValue) {
-    override fun clone() = StringValue(value)
-    override fun toString() = value
+    override fun clone() = StringValue(unwrap())
+    override fun toString() = unwrap()
 }
 
 class NilValue : StorePrimitive {
@@ -91,7 +102,7 @@ class NilValue : StorePrimitive {
 /**
  * Wrapper over immutable List.
  */
-class ListValue(val list: List<StorePrimitive> = listOf()): StoreValue, StoreCollection<StorePrimitive> {
+class ListValue(private val list: List<StorePrimitive> = listOf()): StoreWrapper<List<StorePrimitive>>, StoreValue, StoreCollection<StorePrimitive> {
     /**
      * Creates a mutable clone of the immutable list and passes it to the given function. The return
      * value of that function is then used to create a new ListValue. Note that internal values
@@ -107,6 +118,7 @@ class ListValue(val list: List<StorePrimitive> = listOf()): StoreValue, StoreCol
 
     override val size: Int get() = list.size
     override fun clone(): ListValue = ListValue(list)
+    override fun unwrap() = list
     override fun iterator(): Iterator<StorePrimitive> = list.iterator()
     override fun toString() = list.joinToString(prefix = "[", postfix = "]")
 }
@@ -155,7 +167,7 @@ fun <T> List<T>.slice(start: Int, endInclusive: Int): List<T> {
 /**
  * Wrapper over immutable Set.
  */
-class SetValue(val set: Set<String> = setOf()) : StoreValue, StoreCollection<String> {
+class SetValue(private val set: Set<String> = setOf()) : StoreWrapper<Set<String>>, StoreValue, StoreCollection<String> {
     /**
      * Creates a mutable clone of the immutable set and passes it to the given function. The return
      * value of that function is then used to create a new SetValue.
@@ -170,6 +182,7 @@ class SetValue(val set: Set<String> = setOf()) : StoreValue, StoreCollection<Str
 
     override val size get() = set.size
     override fun clone() = SetValue(set.toSet())
+    override fun unwrap() = set
     override fun iterator() = set.iterator()
     override fun toString() = set.joinToString(prefix = "[", postfix = "]")
 }
@@ -177,8 +190,8 @@ class SetValue(val set: Set<String> = setOf()) : StoreValue, StoreCollection<Str
 /**
  * Wrapper over concurrent map.
  */
-class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreCollection<Map.Entry<String, StoreValue>> {
-    val map = ConcurrentHashMap(initialValues)
+class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreWrapper<Map<String, StoreValue>>, StoreCollection<Map.Entry<String, StoreValue>> {
+    private val map = ConcurrentHashMap(initialValues)
 
     /**
      * Similar to ListValue and SetValue use, except that the map passed
@@ -193,6 +206,7 @@ class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreCollecti
 
     override val size get() = map.size
     override fun clone() = MapValue(map)
+    override fun unwrap() = map
     override fun iterator() = map.iterator()
     override fun toString(): String {
         val str = StringBuilder()
