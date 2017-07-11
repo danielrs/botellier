@@ -48,22 +48,22 @@ val COMMANDS = arrayOf(
 
 private val OK = StringValue("OK")
 
-/**
- * Connection.
- */
+// ----------------
+// Connection.
+// ----------------
 
 @WithCommand("AUTH")
 class AuthCommand : ConnCommand() {
     @field:Parameter(0)
     var password = stringValue
 
-    override fun execute(server: Server, client: Client): StoreValue {
+    override fun run(server: Server, client: Client): StoreValue {
         if (server.password == null || password.value == server.password) {
             client.isAuthenticated = true
             return OK
         }
         else {
-            throw CommandException("Invalid password")
+            throw CommandException.RuntimeException("Invalid password")
         }
     }
 }
@@ -73,21 +73,21 @@ class EchoCommand : ConnCommand() {
     @field:Parameter(0)
     var message = stringValue
 
-    override fun execute(server: Server, client: Client): StoreValue {
+    override fun run(server: Server, client: Client): StoreValue {
         return StringValue(message.value)
     }
 }
 
 @WithCommand("PING")
 class PingCommand : ConnCommand() {
-    override fun execute(server: Server, client: Client): StoreValue {
+    override fun run(server: Server, client: Client): StoreValue {
         return StringValue("PONG")
     }
 }
 
 @WithCommand("QUIT")
 class QuitCommand : ConnCommand() {
-    override fun execute(server: Server, client: Client): StoreValue {
+    override fun run(server: Server, client: Client): StoreValue {
         return OK
     }
 }
@@ -97,20 +97,20 @@ class SelectCommand : ConnCommand() {
     @field:Parameter(0)
     var index = intValue
 
-    override fun execute(server: Server, client: Client): StoreValue {
+    override fun run(server: Server, client: Client): StoreValue {
         if (index.value >= 0 && index.value < server.dbs.size) {
             client.dbIndex = index.value
             return OK
         }
         else {
-            throw CommandException("Invalid database index.")
+            throw CommandException.RuntimeException("Invalid database index.")
         }
     }
 }
 
-/**
- * Keys.
- */
+// ----------------
+// Keys.
+// ----------------
 
 @WithCommand("DEL")
 class DelCommand : StoreCommand() {
@@ -120,22 +120,24 @@ class DelCommand : StoreCommand() {
     @field:Parameter(1)
     var rest = stringArrayValue
 
-    override fun execute(store: Store): StoreValue {
-        store.remove(key.value)
-        rest.value.map { store.remove(it.value) }
-        return OK
+    override fun run(transaction: StoreTransaction): StoreValue {
+        return transaction {
+            delete(key.value)
+            rest.value.map { delete(it.value) }
+            OK
+        }
     }
 }
 
 @WithCommand("EXISTS")
-class ExistsCommand : StoreCommand() {
+class ExistsCommand : ReadStoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
     @field:Parameter(1)
     var rest = stringArrayValue
 
-    override fun execute(store: Store): StoreValue {
+    override fun run(store: ReadStore): StoreValue {
         var total = 0
         if (store.get(key.value) !is NilValue) {
             total++
@@ -150,11 +152,11 @@ class ExistsCommand : StoreCommand() {
 }
 
 @WithCommand("KEYS")
-class KeysCommand : StoreCommand() {
+class KeysCommand : ReadStoreCommand() {
     @field:Parameter(0)
     var pattern = stringValue
 
-    override fun execute(store: Store): StoreValue {
+    override fun run(store: ReadStore): StoreValue {
         val regex = Regex(pattern.value)
         val matching = mutableListOf<String>()
         store.keys.map { regex.matches(it) && matching.add(it) }
@@ -170,26 +172,23 @@ class RenameCommand : StoreCommand() {
     @field:Parameter(1)
     var newkey = stringValue
 
-    override fun execute(store: Store): StoreValue {
-        return requireValue<StoreValue>(store, key.value) {
-            if (store.get(newkey.value) !is NilValue) {
-                val del = DelCommand()
-                del.key = newkey
-                del.execute(store)
-            }
-            store.remove(key.value)
-            store.set(newkey.value, it)
+    override fun run(transaction: StoreTransaction): StoreValue {
+        val oldValue = transaction.get(key.value)
+
+        return transaction {
+            delete(key.value)
+            set(newkey.value, oldValue)
             OK
         }
     }
 }
 
 @WithCommand("TYPE")
-class TypeCommand : StoreCommand() {
+class TypeCommand : ReadStoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
-    override fun execute(store: Store): StoreValue {
+    override fun run(store: ReadStore): StoreValue {
         return StringValue(store.get(key.value)::class.simpleName ?: "Unknown")
     }
 }
@@ -199,17 +198,17 @@ class TypeCommand : StoreCommand() {
  */
 
 @WithCommand("LINDEX")
-class LIndexCommand : StoreCommand() {
+class LIndexCommand : ReadStoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
     @field:Parameter(1)
     var index = intValue
 
-    override fun execute(store: Store): StoreValue {
+    override fun run(store: ReadStore): StoreValue {
         return requireValue<ListValue>(store, key.value) {
             if (index.value >= 0 && index.value <= it.size - 1) {
-                it.get(index.value)
+                it.list.get(index.value)
             }
             else {
                 NilValue()
@@ -232,35 +231,38 @@ class LInsertCommand : StoreCommand() {
     @field:Parameter(2)
     var value = anyValue
 
-    override fun execute(store: Store): StoreValue {
-        return requireValue<ListValue>(store, key.value) {
-            if (position.value !in listOf("BEFORE", "AFTER")) {
-                throw Command.CommandException("LINSERT BEFORE or AFTER expected.")
-            }
-            val before = position.value == "BEFORE"
+    override fun run(transaction: StoreTransaction): StoreValue {
+        if (position.value !in listOf("BEFORE", "AFTER")) {
+            throw CommandException.RuntimeException("LINSERT [BEFORE|AFTER] expected.")
+        }
+
+        val updated = transaction.update<ListValue>(key.value) {
+            val isBefore = position.value == "BEFORE"
             val value = value.toValue()
             val index = it.indexOf(pivot.toValue())
+
             when (index) {
-                -1 -> IntValue(-1)
+                -1 -> return IntValue(-1)
                 else -> {
-                    when {
-                        before -> it.add(index, value)
+                    it.copy { when {
+                        isBefore -> it.add(index, value)
                         index < it.size - 1 -> it.add(index + 1, value)
                         else -> it.rpush(value)
-                    }
-                    IntValue(it.size)
+                    }}
                 }
             }
         }
+
+        return IntValue((updated as ListValue).size)
     }
 }
 
 @WithCommand("LLEN")
-class LLenCommand : StoreCommand() {
+class LLenCommand : ReadStoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
-    override fun execute(store: Store): StoreValue {
+    override fun run(store: ReadStore): StoreValue {
         return withValue<ListValue>(store, key.value) {
             if (it != null) {
                 IntValue(it.size)
@@ -277,15 +279,20 @@ class LPopCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
-    override fun execute(store: Store): StoreValue {
-        return withValue<ListValue>(store, key.value) {
+    override fun run(transaction: StoreTransaction): StoreValue {
+        var ret: StoreValue = NilValue()
+
+        transaction.mupdate<ListValue>(key.value) {
             if (it != null && it.size > 0) {
-                it.lpop()
-            }
-            else {
+                it.copy {
+                    ret = it.lpop()
+                }
+            } else {
                 NilValue()
             }
         }
+
+        return ret
     }
 }
 
@@ -300,19 +307,21 @@ class LPushCommand : StoreCommand() {
     @field:Parameter(2)
     var rest = anyArrayValue
 
-    override fun execute(store: Store): StoreValue {
-        return withValue<ListValue>(store, key.value) {
-            val list = it ?: ListValue()
-            list.lpush(value.toValue())
-            rest.value.map { list.lpush(it.toValue()) }
-            store.set(key.value, list)
-            IntValue(list.size)
+    override fun run(transaction: StoreTransaction): StoreValue {
+        val updated = transaction.mupdate<ListValue>(key.value) {
+            val current = it ?: ListValue()
+            current.copy {  list ->
+                list.lpush(value.toValue())
+                rest.value.map { list.lpush(it.toValue()) }
+            }
         }
+
+        return (updated as ListValue).size.toValue()
     }
 }
 
 @WithCommand("LRANGE")
-class LRangeCommand : StoreCommand() {
+class LRangeCommand : ReadStoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
@@ -322,9 +331,9 @@ class LRangeCommand : StoreCommand() {
     @field:Parameter(2)
     var stop = intValue
 
-    override fun execute(store: Store): StoreValue {
+    override fun run(store: ReadStore): StoreValue {
         return requireValue<ListValue>(store, key.value) {
-            it.slice(start.value, stop.value)
+            it.list.slice(start.value, stop.value).toValue()
         }
     }
 }
@@ -340,39 +349,26 @@ class LRemCommand : StoreCommand() {
     @field:Parameter(2)
     var value = anyValue
 
-    override fun execute(store: Store): StoreValue {
-        return requireValue<ListValue>(store, key.value) {
-            var count = count.value
-            val indicesToRemove = mutableListOf<Int>()
+    override fun run(transaction: StoreTransaction): StoreValue {
+        val updated = transaction.update<ListValue>(key.value) {
+            val count = count.value
             val value = value.toValue()
+
+            val indices = it.mapIndexed { i, elem -> Pair(i, elem) }.filter { it.second == value }.map { it.first }
             when {
                 count < 0 -> {
-                    for (i in it.size-1 downTo 0) {
-                        if (count == 0) break
-                        if (value == it.get(i)) {
-                            indicesToRemove.add(i)
-                            count++
-                        }
-                    }
+                    it.copy { it.remove(indices.takeLast(Math.abs(count))) }
                 }
                 count > 0 -> {
-                    for (i in 0..it.size-1) {
-                        if (count == 0) break
-                        if (value == it.get(i)) {
-                            indicesToRemove.add(i)
-                            count--
-                        }
-                    }
+                    it.copy { it.remove(indices.take(Math.abs(count))) }
                 }
-                count == 0 -> {
-                    for (i in 0..it.size-1) {
-                        if (value == it.get(i)) indicesToRemove.add(i)
-                    }
+                else -> {
+                    it.copy { it.remove(indices) }
                 }
             }
-            it.remove(indicesToRemove)
-            return IntValue(indicesToRemove.size)
         }
+
+        return IntValue((updated as ListValue).size)
     }
 }
 
@@ -387,14 +383,18 @@ class LSetCommand : StoreCommand() {
     @field:Parameter(2)
     var value = anyValue
 
-    override fun execute(store: Store): StoreValue {
-        return requireValue<ListValue>(store, key.value) {
+    override fun run(transaction: StoreTransaction): StoreValue {
+        transaction.update<ListValue>(key.value) {
             if (index.value < 0 || index.value > it.size - 1) {
-                throw CommandException("LSET index out of bounds")
+                throw CommandException.RuntimeException("LSET index out of bounds")
             }
-            it.set(index.value, value.toValue())
-            OK
+
+            it.copy {
+                it.set(index.value, value.toValue())
+            }
         }
+
+        return OK
     }
 }
 
@@ -409,14 +409,11 @@ class LTrimCommand : StoreCommand() {
     @field:Parameter(2)
     var stop = intValue
 
-    override fun execute(store: Store): StoreValue {
-        return requireValue<ListValue>(store, key.value) {
-            it.trim(start.value, stop.value)
-            if (it.size <= 0) {
-                store.remove(key.value)
-            }
-            OK
+    override fun run(transaction: StoreTransaction): StoreValue {
+        transaction.update<ListValue>(key.value) {
+            it.copy { list -> list.trim(start.value, stop.value) }
         }
+        return OK
     }
 }
 
@@ -425,15 +422,20 @@ class RPopCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
-    override fun execute(store: Store): StoreValue {
-        return withValue<ListValue>(store, key.value) {
+    override fun run(transaction: StoreTransaction): StoreValue {
+        var ret: StoreValue = NilValue()
+
+        transaction.mupdate<ListValue>(key.value) {
             if (it != null && it.size > 0) {
-                it.rpop()
-            }
-            else {
+                it.copy {
+                    ret = it.rpop()
+                }
+            } else {
                 NilValue()
             }
         }
+
+        return ret
     }
 }
 
@@ -448,14 +450,16 @@ class RPushCommand : StoreCommand() {
     @field:Parameter(2)
     var rest = anyArrayValue
 
-    override fun execute(store: Store): StoreValue {
-        return withValue<ListValue>(store, key.value) {
-            val list = it ?: ListValue()
-            list.rpush(value.toValue())
-            rest.value.map { list.rpush(it.toValue()) }
-            store.set(key.value, list)
-            IntValue(list.size)
+    override fun run(transaction: StoreTransaction): StoreValue {
+        val updated = transaction.mupdate<ListValue>(key.value) {
+            val current = it ?: ListValue()
+            current.copy { list ->
+                list.rpush(value.toValue())
+                rest.value.map { list.rpush(it.toValue()) }
+            }
         }
+
+        return IntValue((updated as ListValue).size)
     }
 }
 
@@ -471,18 +475,17 @@ class AppendCommand : StoreCommand() {
     @field:Parameter(1)
     var value = anyValue
 
-    override fun execute(store: Store): StoreValue {
-        return withValue<StringValue>(store, key.value) {
+    override fun run(transaction: StoreTransaction): StoreValue {
+        val updated = transaction.mupdate<StringValue>(key.value) {
             val builder = StringBuilder()
             if (it != null) {
                 builder.append(it.value)
             }
             builder.append(value.toString())
-
-            val result = builder.toString()
-            store.set(key.value, result.toValue())
-            result.length.toValue()
+            builder.toString().toValue()
         }
+
+        return (updated as StringValue).value.length.toValue()
     }
 }
 
@@ -491,11 +494,8 @@ class DecrCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
-    override fun execute(store: Store): StoreValue {
-        val decrby = DecrbyCommand()
-        decrby.key = key
-        decrby.decrement = CValue.Primitive.Int(1)
-        return decrby.execute(store)
+    override fun run(transaction: StoreTransaction): StoreValue {
+        return transactionIncr(transaction, key.value, -1)
     }
 }
 
@@ -507,19 +507,16 @@ class DecrbyCommand : StoreCommand() {
     @field:Parameter(1)
     var decrement = intValue
 
-    override fun execute(store: Store): StoreValue {
-        val incrby = IncrbyCommand()
-        incrby.key = key
-        incrby.increment = CValue.Primitive.Int(-decrement.value)
-        return incrby.execute(store)
+    override fun run(transaction: StoreTransaction): StoreValue {
+        return transactionIncr(transaction, key.value, -decrement.value)
     }
 }
 
 @WithCommand("GET")
-class GetCommand : StoreCommand() {
+class GetCommand : ReadStoreCommand() {
     @field:Parameter(0)
     var key = stringValue
-    override fun execute(store: Store): StoreValue {
+    override fun run(store: ReadStore): StoreValue {
         return withPrimitive<StorePrimitive>(store, key.value) {
             it ?: NilValue()
         }
@@ -531,11 +528,8 @@ class IncrCommand : StoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
-    override fun execute(store: Store): StoreValue {
-        val incrby = IncrbyCommand()
-        incrby.key = key
-        incrby.increment = CValue.Primitive.Int(1)
-        return incrby.execute(store)
+    override fun run(transaction: StoreTransaction): StoreValue {
+        return transactionIncr(transaction, key.value, 1)
     }
 }
 
@@ -547,16 +541,8 @@ class IncrbyCommand : StoreCommand() {
     @field:Parameter(1)
     var increment = intValue
 
-    override fun execute(store: Store): StoreValue {
-        return withValue<StoreNumber>(store, key.value) {
-            val value = when(it) {
-                is IntValue -> (it.value + increment.value).toValue()
-                is FloatValue -> (it.value + increment.value.toFloat()).toValue()
-                else -> increment.value.toValue()
-            } as StorePrimitive
-            store.set(key.value, value)
-            value
-        }
+    override fun run(transaction: StoreTransaction): StoreValue {
+        return transactionIncr(transaction, key.value, increment.value)
     }
 }
 
@@ -568,36 +554,28 @@ class IncrbyfloatCommand : StoreCommand() {
     @field:Parameter(1)
     var increment = floatValue
 
-    override fun execute(store: Store): StoreValue {
-        return withValue<StoreNumber>(store, key.value) {
-            val value = when(it) {
-                is IntValue -> (it.value.toFloat() + increment.value).toValue()
-                is FloatValue -> (it.value + increment.value).toValue()
-                else -> increment.value.toValue()
-            }
-            store.set(key.value, value)
-            value
-        }
+    override fun run(transaction: StoreTransaction): StoreValue {
+        return transactionIncrFloat(transaction, key.value, increment.value)
     }
 }
 
 @WithCommand("MGET")
-class MGetCommand : StoreCommand() {
+class MGetCommand : ReadStoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
     @field:Parameter(1)
     var rest = stringArrayValue
 
-    override fun execute(store: Store): StoreValue {
-        val listValue = ListValue()
+    override fun run(store: ReadStore): StoreValue {
+        val list = mutableListOf<StoreValue>()
 
-        listValue.rpush(withPrimitive<StorePrimitive>(store, key.value) { it ?: NilValue() })
+        list.rpush(withPrimitive<StorePrimitive>(store, key.value) { it ?: NilValue() })
         rest.value.map {
-            listValue.rpush(withPrimitive<StorePrimitive>(store, it.value) { it ?: NilValue() })
+            list.rpush(withPrimitive<StorePrimitive>(store, it.value) { it ?: NilValue() })
         }
 
-        return listValue
+        return list.map { it as StorePrimitive }.toValue()
     }
 }
 
@@ -612,12 +590,14 @@ class MSetCommand : StoreCommand() {
     @field:Parameter(2)
     var rest = pairArrayValue
 
-    override fun execute(store: Store): StoreValue {
-        store.set(key.value, value.toValue())
-        for ((key, value) in rest.value) {
-            store.set(key, value.toValue())
+    override fun run(transaction: StoreTransaction): StoreValue {
+        return transaction {
+            set(key.value, value.toValue())
+            for ((key, value) in rest.value) {
+                set(key, value.toValue())
+            }
+            OK
         }
-        return OK
     }
 }
 
@@ -629,18 +609,18 @@ class SetCommand : StoreCommand() {
     @field:Parameter(1)
     var value = anyValue
 
-    override fun execute(store: Store): StoreValue {
-        store.set(key.value, value.toValue())
+    override fun run(transaction: StoreTransaction): StoreValue {
+        transaction.set(key.value, value.toValue())
         return OK
     }
 }
 
 @WithCommand("STRLEN")
-class StrlenCommand : StoreCommand() {
+class StrlenCommand : ReadStoreCommand() {
     @field:Parameter(0)
     var key = stringValue
 
-    override fun execute(store: Store): StoreValue {
+    override fun run(store: ReadStore): StoreValue {
         return withValue<StringValue>(store, key.value) {
             if (it != null) {
                 IntValue(it.value.length)
@@ -652,6 +632,30 @@ class StrlenCommand : StoreCommand() {
     }
 }
 
+// ----------------
+// Utility functions.
+// ----------------
+
+private fun transactionIncr(transaction: StoreTransaction, key: String, incr: Int): StoreValue {
+    return transaction.mupdate<StoreNumber>(key) {
+        when (it) {
+            is IntValue -> IntValue(it.value + incr)
+            is FloatValue -> FloatValue(it.value + incr.toFloat())
+            else -> IntValue(incr)
+        }
+    }
+}
+
+private fun transactionIncrFloat(transaction: StoreTransaction, key: String, incr: Double): StoreValue {
+    return transaction.mupdate<StoreNumber>(key) {
+        when (it) {
+            is IntValue -> FloatValue(it.value.toFloat() + incr)
+            is FloatValue -> FloatValue(it.value + incr)
+            else -> FloatValue(incr)
+        }
+    }
+}
+
 /**
  * Utility functions.
  */
@@ -659,18 +663,18 @@ class StrlenCommand : StoreCommand() {
 /**
  * Gets 'key' from store and throws exception if 'key' doesn't exists.
  */
-private inline fun <reified T, R> requireType(store: Store, key: String, body: (T) -> R): R {
+private inline fun <reified T, R> requireType(store: ReadStore, key: String, body: (T) -> R): R {
     val value = store.get(key)
     if (value !is NilValue) {
         if (value is T) {
             return body(value)
         }
         else {
-            throw Command.WrongTypeException(key, value.javaClass.name)
+            throw CommandException.WrongTypeException(key, value.javaClass.name)
         }
     }
     else {
-        throw Command.WrongTypeException(key, NilValue::class.qualifiedName ?: "NilValue")
+        throw CommandException.WrongTypeException(key, NilValue::class.qualifiedName ?: "NilValue")
     }
 }
 
@@ -678,14 +682,14 @@ private inline fun <reified T, R> requireType(store: Store, key: String, body: (
  * Just like [requireType], except that body parameter is nullable (doesn't throw exception if 'key' lookup
  * fails).
  */
-private inline fun <reified T, R> withType(store: Store, key: String, body: (T?) -> R): R {
+private inline fun <reified T, R> withType(store: ReadStore, key: String, body: (T?) -> R): R {
     val value = store.get(key)
     if (value !is NilValue) {
         if (value is T) {
             return body(value)
         }
         else {
-            throw Command.WrongTypeException(key, value.javaClass.name)
+            throw CommandException.WrongTypeException(key, value.javaClass.name)
         }
     }
     else {
@@ -693,11 +697,11 @@ private inline fun <reified T, R> withType(store: Store, key: String, body: (T?)
     }
 }
 
-private inline fun <reified T> withValue(store: Store, key: String, body: (T?) -> StoreValue)
+private inline fun <reified T> withValue(store: ReadStore, key: String, body: (T?) -> StoreValue)
         = withType(store, key, body)
 
-private inline fun <reified T> withPrimitive(store: Store, key: String, body: (T?) -> StorePrimitive)
+private inline fun <reified T> withPrimitive(store: ReadStore, key: String, body: (T?) -> StorePrimitive)
         = withType(store, key, body)
 
-private inline fun <reified T> requireValue(store: Store, key: String, body: (T) -> StoreValue)
+private inline fun <reified T> requireValue(store: ReadStore, key: String, body: (T) -> StoreValue)
         = requireType(store, key, body)

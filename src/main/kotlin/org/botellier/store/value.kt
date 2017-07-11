@@ -3,46 +3,53 @@ package org.botellier.store
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Interfaces.
+ * Interface types, they serve the following purposes:
+ *
+ * - StoreType: The base type for primitives and collections.
+ * - StoreValue: It is used to represent types that can be stored
+ * in a map. Maps themselves are not children of StoreValue to
+ * prevent nested collections.
+ * - StorePrimitive: Is either a number, string or nil; they are immutable.
+ * - StoreNumber: Is a primitive that is either an int or a floating point number.
+ * - StoreCollection: Can be either a list, set or map; they are mutable.
+ *
+ * Only stores values can be stored inside a store collection (i.e. no nested maps or list are
+ * allowed).
  */
 
 interface StoreType {
     fun clone(): StoreType
 }
-
-// StoreValue(s) can be stored on a map.
-interface StoreValue : StoreType {
+interface StoreValue: StoreType {
     override fun clone(): StoreValue
 }
 
-interface StorePrimitive : StoreValue {
+interface StorePrimitive : StoreValue  {
     override fun clone(): StorePrimitive
 }
 
-interface StoreNumber : StorePrimitive
+interface StoreNumber : StorePrimitive {
+    override fun clone(): StoreNumber
+}
 
-interface StoreCollection<out T> : StoreValue, Iterable<T> {
+interface StoreCollection<out T> : StoreType, Iterable<T> {
     val size: Int
     override fun clone(): StoreCollection<T>
 }
 
-/**
- * Primitive types.
- */
+// ----------------
+// Primitives.
+// ----------------
 
-abstract class PrimitiveValue<T>(initialValue: T) : Comparable<PrimitiveValue<T>>
+/**
+ * Class that is inherited by all primitive types. It basically holds the field
+ * for the underlying *immutable* value.
+ */
+abstract class PrimitiveValue<T>(initialValue: T) : StorePrimitive, Comparable<PrimitiveValue<T>>
 where T : Comparable<T> {
-    var value: T = initialValue
-        get() {
-            synchronized(field) {
-                return field
-            }
-        }
-        set(value) {
-            synchronized(field) {
-                field = value
-            }
-        }
+    val value: T = initialValue
+
+    override abstract fun clone(): PrimitiveValue<*>
 
     override fun equals(other: Any?): Boolean {
         return when (other) {
@@ -57,177 +64,136 @@ where T : Comparable<T> {
 }
 
 class IntValue(initialValue: Int = 0) : StoreNumber, PrimitiveValue<Int>(initialValue) {
-    override fun clone(): IntValue = IntValue(value)
-    override fun toString(): String = value.toString()
+    override fun clone() = IntValue(value)
+    override fun toString() = value.toString()
 }
 
 class FloatValue(initialValue: Double = 0.0) : StoreNumber, PrimitiveValue<Double>(initialValue) {
-    override fun clone(): FloatValue = FloatValue(value)
-    override fun toString(): String = value.toString()
+    override fun clone() = FloatValue(value)
+    override fun toString() = value.toString()
 }
 
-class StringValue(initialValue: String = "") : StorePrimitive, PrimitiveValue<String>(initialValue) {
-    override fun clone(): StringValue = StringValue(value)
-    override fun toString(): String = value
+class StringValue(initialValue: String = "") : PrimitiveValue<String>(initialValue) {
+    override fun clone() = StringValue(value)
+    override fun toString() = value
 }
 
 class NilValue : StorePrimitive {
-    override fun clone(): NilValue = NilValue()
-    override fun toString(): String = "nil"
-    override fun equals(other: Any?): Boolean = other == null || other is NilValue
+    override fun clone() = NilValue()
+    override fun toString() = "nil"
+    override fun equals(other: Any?) = other == null || other is NilValue
+}
+
+// ----------------
+// Collections.
+// ----------------
+
+/**
+ * Wrapper over immutable List.
+ */
+class ListValue(val list: List<StorePrimitive> = listOf()): StoreValue, StoreCollection<StorePrimitive> {
+    /**
+     * Creates a mutable clone of the immutable list and passes it to the given function. The return
+     * value of that function is then used to create a new ListValue. Note that internal values
+     * are not cloned.
+     * @param block the callback to pass the mutable list to.
+     * @returns the modified ListValue.
+     */
+    fun copy(block: (MutableList<StorePrimitive>) -> Unit = {}): ListValue {
+        val next = list.toMutableList()
+        block(next)
+        return ListValue(next)
+    }
+
+    override val size: Int get() = list.size
+    override fun clone(): ListValue = ListValue(list)
+    override fun iterator(): Iterator<StorePrimitive> = list.iterator()
+    override fun toString() = list.joinToString(prefix = "[", postfix = "]")
+}
+
+// Useful extensions.
+
+fun <T> MutableList<T>.remove(indices: List<Int>): List<T> {
+    val indices = indices.sortedDescending().distinct()
+    val removed = mutableListOf<T>()
+    indices.map { removed.add(this.removeAt(it)) }
+    return removed.toList()
+}
+
+fun <T> MutableList<T>.lpush(value: T) {
+    this.add(0, value)
+}
+
+fun <T> MutableList<T>.rpush(value: T) {
+    this.add(this.lastIndex + 1, value)
+}
+
+fun <T> MutableList<T>.lpop(): T {
+    return this.removeAt(0)
+}
+
+fun <T> MutableList<T>.rpop(): T {
+    return this.removeAt(this.lastIndex)
+}
+
+fun <T> MutableList<T>.trim(start: Int, endInclusive: Int) {
+    val start = if (start < 0) (start % size + size) % size else start
+    val endInclusive = if (endInclusive < 0) (endInclusive % size + size) % size else endInclusive
+    if (start > endInclusive) {
+        this.clear()
+    } else {
+        this.remove((start..endInclusive).toList())
+    }
+}
+
+fun <T> List<T>.slice(start: Int, endInclusive: Int): List<T> {
+    val start = if (start < 0) (start % size + size) % size else start
+    val endInclusive = if (endInclusive < 0) (endInclusive % size + size) % size else endInclusive
+    return this.slice(start..endInclusive)
 }
 
 /**
- * Collection types.
+ * Wrapper over immutable Set.
  */
-
-class ListValue(initialValues: List<StorePrimitive> = mutableListOf()) : StoreCollection<StorePrimitive> {
-    private var list: MutableList<StorePrimitive> = initialValues.map { it.clone() }.toMutableList()
-
-    fun get(index: Int): StorePrimitive {
-        return synchronized(list) {
-            list.get(index)
-        }
+class SetValue(val set: Set<String> = setOf()) : StoreValue, StoreCollection<String> {
+    /**
+     * Creates a mutable clone of the immutable set and passes it to the given function. The return
+     * value of that function is then used to create a new SetValue.
+     * @param block the callback to pass the mutable set to.
+     * @returns the modified SetValue.
+     */
+    fun copy(block: (MutableSet<String>) -> Unit = {}): SetValue {
+        val next = set.toMutableSet()
+        block(next)
+        return SetValue(next)
     }
-
-    fun set(index: Int, value: StorePrimitive) {
-        synchronized(list) {
-            list.set(index, value.clone())
-        }
-    }
-
-    fun add(index: Int, value: StorePrimitive) {
-        synchronized(list) {
-            list.add(index, value)
-        }
-    }
-
-    fun remove(index: Int): StorePrimitive {
-        return synchronized(list) {
-            list.removeAt(index)
-        }
-    }
-
-    fun remove(indices: List<Int>): List<StorePrimitive> {
-        val indices = indices.sortedDescending().distinct()
-        val removed = mutableListOf<StorePrimitive>()
-        indices.map { removed.add(remove(it)) }
-        return removed
-    }
-
-    fun lpush(value: StorePrimitive) {
-        synchronized(list) {
-            list.add(0, value)
-        }
-    }
-
-    fun rpush(value: StorePrimitive) {
-        synchronized(list) {
-            list.add(value.clone())
-        }
-    }
-
-    fun lpop(): StorePrimitive {
-        return synchronized(list) {
-            list.removeAt(0)
-        }
-    }
-
-    fun rpop(): StorePrimitive {
-        return synchronized(list) {
-            list.removeAt(list.lastIndex)
-        }
-    }
-
-    fun trim(start: Int, endInclusive: Int) {
-        val start = if (start < 0) (start % size + size) % size else start
-        val endInclusive = if (endInclusive <0) (endInclusive % size + size) % size else endInclusive
-        list = list.slice(start..endInclusive).toMutableList()
-    }
-
-    fun slice(start: Int, endInclusive: Int): ListValue {
-        val start = if (start < 0) (start % size + size) % size else start
-        val endInclusive = if (endInclusive <0) (endInclusive % size + size) % size else endInclusive
-        return ListValue(list.slice(start..endInclusive).map { it.clone() })
-    }
-
-    fun toList(): List<StorePrimitive> = list.map { it.clone() }
-
-    override val size get() = list.size
-    override fun clone(): ListValue = ListValue(list)
-    override fun iterator(): Iterator<StorePrimitive> = toList().iterator()
-    override fun toString(): String = list.joinToString(prefix = "[", postfix = "]")
-}
-
-class SetValue(initialValues: Set<String> = setOf()) : StoreCollection<String> {
-    private var set: MutableSet<String> = initialValues.toMutableSet()
-
-    fun set(key: String) {
-        synchronized(set) {
-            set.add(key)
-        }
-    }
-
-    fun unset(key: String) {
-        synchronized(set) {
-            set.remove(key)
-        }
-    }
-
-    fun clear() {
-        synchronized(set) {
-            set.clear()
-        }
-    }
-
-    fun contains(key: String) {
-        synchronized(set) {
-            set.contains(key)
-        }
-    }
-
-    fun toSet(): Set<String> = set.toSet()
 
     override val size get() = set.size
-    override fun clone(): SetValue = SetValue(set.toSet())
-    override fun iterator(): Iterator<String> = toSet().iterator()
-    override fun toString(): String = set.joinToString(prefix = "[", postfix = "]")
+    override fun clone() = SetValue(set.toSet())
+    override fun iterator() = set.iterator()
+    override fun toString() = set.joinToString(prefix = "[", postfix = "]")
 }
 
-// TODO: Maybe clone on get and set?
-class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreType, Iterable<Map.Entry<String, StoreValue>> {
-    private var map: ConcurrentHashMap<String, StoreValue> =
-            ConcurrentHashMap(initialValues.mapValues { it.value.clone() }.toMap())
+/**
+ * Wrapper over concurrent map.
+ */
+class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreCollection<Map.Entry<String, StoreValue>> {
+    val map = ConcurrentHashMap(initialValues)
 
-    val keys get() = map.keys.toSet()
-    val size get() = map.size
-
-    fun get(key: String): StoreValue {
-        val value = map[key]
-        if (value != null) {
-            return value
-        }
-        else {
-            return NilValue()
-        }
+    /**
+     * Similar to ListValue and SetValue use, except that the map passed
+     * to the parameter is not a clone, it is a reference to the underlying
+     * map.
+     * @param block the callback to pass the map reference to.
+     * @see ListValue.use
+     */
+    fun use(block: (MutableMap<String, StoreValue>) -> Unit) {
+        block(map)
     }
 
-    fun set(key: String, value: StoreValue) {
-        map[key] = value
-    }
-
-    fun remove(key: String) {
-        map.remove(key)
-    }
-
-    fun clear() {
-        map.clear()
-    }
-
-    fun toMap(): Map<String, StoreValue> = map.mapValues { it.value.clone() }
-
-    override fun clone(): MapValue = MapValue(map)
-    override fun iterator(): Iterator<Map.Entry<String, StoreValue>> = toMap().iterator()
+    override val size get() = map.size
+    override fun clone() = MapValue(map)
+    override fun iterator() = map.iterator()
     override fun toString(): String {
         val str = StringBuilder()
 
@@ -237,10 +203,12 @@ class MapValue(initialValues: Map<String, StoreValue> = mapOf()) : StoreType, It
 
         return str.toString()
     }
-
 }
 
-// Extension functions for common built-in types.
+// ----------------
+// Extension for converting built-in types to store types.
+// ----------------
+
 fun Int.toValue(): IntValue = IntValue(this)
 fun Float.toValue(): FloatValue = FloatValue(this.toDouble())
 fun Double.toValue(): FloatValue = FloatValue(this)

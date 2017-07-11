@@ -2,8 +2,7 @@ package org.botellier.command
 
 import org.botellier.server.Client
 import org.botellier.server.Server
-import org.botellier.store.Store
-import org.botellier.store.StoreValue
+import org.botellier.store.*
 import kotlin.reflect.KMutableProperty
 import kotlin.reflect.full.declaredMemberProperties
 
@@ -16,7 +15,7 @@ annotation class Parameter(val order: Int, val optional: Boolean = false)
 abstract class Command {
     val name: String by lazy {
         val withCommand = this::class.annotations.find { it is WithCommand } as? WithCommand
-        withCommand?.name?.toUpperCase() ?: throw InvalidCommandDeclarationException()
+        withCommand?.name?.toUpperCase() ?: throw CommandException.InvalidCommandDeclarationException()
     }
 
     val parameters by lazy {
@@ -25,10 +24,10 @@ abstract class Command {
                     val field = this::class.java.getDeclaredField(it.name)
 
                     if (field.javaClass.isInstance(CValue::class)) {
-                        throw InvalidPropertyException(this::class.toString(), it.name, "must be a CValue")
+                        throw CommandException.InvalidPropertyException(this::class.toString(), it.name, "must be a CValue")
                     }
                     if (it !is KMutableProperty<*>) {
-                        throw InvalidPropertyException(this::class.toString(), it.name, "must be mutable")
+                        throw CommandException.InvalidPropertyException(this::class.toString(), it.name, "must be mutable")
                     }
 
                     field.getAnnotation(Parameter::class.java) != null
@@ -71,37 +70,78 @@ abstract class Command {
         }
         return builder.toString()
     }
+}
 
-    // Declaration exceptions.
-    class InvalidCommandDeclarationException
-        : Throwable("Command must declare a name using the @WithCommand annotation")
+// ----------------
+// Command types.
+// ----------------
 
-    class InvalidPropertyException(className: String, paramName: String, message: String)
-        : Throwable("Property '$paramName' from [$className]: $message")
-
-    // Execution exceptions.
-    class CommandException(message: String)
-        : Throwable(message)
-
-    class CommandDisabledException(name: String)
-        : Throwable("Command '$name' is current disabled.")
-
-    class WrongTypeException(key: String, currentType: String)
-        : Throwable("Invalid operation on '$key' of type '$currentType'.")
+/**
+ * Commands that need access to the server.
+ */
+abstract class ConnCommand : Command() {
+    open fun run(server: Server, client: Client): StoreValue {
+        throw CommandException.CommandDisabledException(name)
+    }
+    fun execute(server: Server, client: Client) = run(server, client)
 }
 
 /**
- * Command types.
+ * Commands that has read-only access to the store.
  */
+abstract class ReadStoreCommand : Command() {
+    open fun run(store: ReadStore): StoreValue {
+        throw CommandException.CommandDisabledException(name)
+    }
+    fun execute(store: ReadStore) = run(store)
+}
 
-abstract class ConnCommand : Command() {
-    open fun execute(server: Server, client: Client): StoreValue {
-        throw CommandDisabledException(name)
+// TODO: Add logging to mutator functions.
+/**
+ * Commands that have full access to the store, therefore,
+ * all their actions must be logged. The parameter to run
+ * is now a StoreTransaction that the command can use for making
+ * changes to the store.
+ */
+abstract class StoreCommand : Command() {
+    var transaction : StoreTransaction? = null
+
+    open fun run(transaction: StoreTransaction): StoreValue {
+        throw CommandException.CommandDisabledException(name)
+    }
+
+    fun transaction(block: StoreTransaction.() -> StoreValue): StoreValue {
+        return this.transaction!!.block()
+    }
+
+    fun execute(store: Store): StoreValue {
+        this.transaction = store.transaction()
+        val ret = run(this.transaction!!)
+        this.transaction!!.commit()
+
+        return ret
     }
 }
 
-abstract class StoreCommand : Command() {
-    open fun execute(store: Store): StoreValue {
-        throw CommandDisabledException(name)
-    }
+// ----------------
+// Exceptions.
+// ----------------
+
+sealed class CommandException(msg: String) : Throwable(msg) {
+    // Declaration exceptions.
+    class InvalidCommandDeclarationException
+        : CommandException("Command must declare a name using @WIthComand annotation.")
+
+    class InvalidPropertyException(className: String, paramName: String, msg: String)
+        : CommandException("Property '$paramName` from [$className]: $msg")
+
+    // Execution exceptions.
+    class RuntimeException(msg: String)
+        : CommandException(msg)
+
+    class CommandDisabledException(name: String)
+        : CommandException("Command '$name' is currently disabled.")
+
+    class WrongTypeException(key: String, currentType: String)
+        : CommandException("Invalid operation on '$key' of type '$currentType'.")
 }

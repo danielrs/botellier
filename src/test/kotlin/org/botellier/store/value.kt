@@ -16,21 +16,6 @@ class StoreValueTest {
     }
 
     @Test
-    fun clonesFromModifiedPrimitives() {
-        val int = IntValue(1)
-        val float = FloatValue(1.0)
-        val string = StringValue("one")
-
-        int.value = 2
-        float.value = 2.0
-        string.value = "two"
-
-        Assert.assertEquals(int.value, int.clone().value)
-        Assert.assertEquals(float.value, float.clone().value, 0.001)
-        Assert.assertEquals(string.value, string.clone().value)
-    }
-
-    @Test
     fun primitivesComparisons() {
         val int = IntValue(1)
         val float = FloatValue(1.0)
@@ -47,41 +32,21 @@ class StoreValueTest {
     }
 
     @Test
-    fun cloneNotSameAsOriginal() {
-        val int = IntValue(1)
-        val float = FloatValue(1.0)
-        val string = StringValue("one")
+    fun listAndSetCloneNotSameAsOriginal() {
         val list = ListValue(listOf(1, 2).map(Int::toValue))
         val set = SetValue(setOf("one", "two"))
-        val map = MapValue(mapOf("one" to 1, "two" to 2).mapValues { it.value.toValue() })
 
-        val intClone = int.clone()
-        val floatClone = float.clone()
-        val stringClone = string.clone()
-        val listClone = list.clone()
-        val setClone = set.clone()
-        val mapClone = map.clone()
+        val listClone = list.copy { it.rpush(3.toValue()) }
+        val setClone = set.copy { it.add("three") }
 
-        intClone.value = 10
-        floatClone.value = 10.0
-        stringClone.value = "ten"
-        listClone.rpush(3.toValue())
-        setClone.set("three")
-        mapClone.set("three", 3.toValue())
-
-        Assert.assertNotEquals(int.value, intClone.value)
-        Assert.assertNotEquals(float.value, floatClone.value)
-        Assert.assertNotEquals(string.value, stringClone.value)
         Assert.assertNotEquals(list.size, listClone.size)
         Assert.assertNotEquals(set.size, setClone.size)
-        Assert.assertNotEquals(map.size, mapClone.size)
     }
 
     @Test
     fun modifyingListClone() {
         val list = listOf(1, 2, 3).map(Int::toValue).toValue()
-        val clone = list.clone()
-        clone.lpop()
+        val clone = list.copy { it.lpop() }
 
         Assert.assertEquals(list.size, 3)
         Assert.assertEquals(clone.size, 2)
@@ -90,20 +55,9 @@ class StoreValueTest {
     @Test
     fun modifyingSetClone() {
         val set = setOf("one", "two", "three").toValue()
-        val clone = set.clone()
-        clone.unset("one")
+        val clone = set.copy { it.remove("one") }
 
         Assert.assertEquals(set.size, 3)
-        Assert.assertEquals(clone.size, 2)
-    }
-
-    @Test
-    fun modifyingMapClone() {
-        val map = mapOf("one" to 1, "two" to 2, "three" to 3).mapValues { it.value.toValue() }.toValue()
-        val clone = map.clone()
-        clone.remove("one")
-
-        Assert.assertEquals(map.size, 3)
         Assert.assertEquals(clone.size, 2)
     }
 
@@ -143,29 +97,31 @@ class StoreValueTest {
 
     @Test
     fun settingAndGettingList() {
-        val list = listOf(1, 2, 3).map(Int::toValue).toValue()
-        list.set(1, 2.0.toValue())
-        list.set(2, "3".toValue())
+        val list = listOf(1, 2, 3).map(Int::toValue).toValue().copy {
+            it[1] = 2.0.toValue()
+            it[2] = "3".toValue()
+        }
 
-        Assert.assertEquals((list.get(0) as IntValue).value, 1)
-        Assert.assertEquals((list.get(1) as FloatValue).value, 2.0, 0.001)
-        Assert.assertEquals((list.get(2) as StringValue).value, "3")
+        Assert.assertEquals((list.list.get(0) as IntValue).value, 1)
+        Assert.assertEquals((list.list.get(1) as FloatValue).value, 2.0, 0.001)
+        Assert.assertEquals((list.list.get(2) as StringValue).value, "3")
     }
 
     @Test
     fun removingFromList() {
-        val list = listOf(1, 2, 3, 4, 5, 6, 7, 8, 9).map(Int::toValue).toValue()
-        list.remove(0)
-        list.remove(listOf(0, 0, 1, 1, 2, 3, 4, 5, 6))
+        val list = listOf(1, 2, 3, 4, 5, 6, 7, 8, 9).map(Int::toValue).toValue().copy {
+            it.removeAt(0)
+            it.remove(listOf(0, 0, 1, 1, 2, 3, 4, 5, 6))
+        }
         Assert.assertEquals(1, list.size)
-        Assert.assertEquals(IntValue(9), list.lpop())
+        Assert.assertEquals(IntValue(9), list.list.first())
     }
 
     @Test
     fun slicingList() {
         val list = listOf(1, 2, 3).map(Int::toValue).toValue()
-        Assert.assertEquals(list.slice(0, 2).toList().map{ (it as IntValue).value }, listOf(1, 2, 3))
-        Assert.assertEquals(list.slice(0, 1).toList().map{ (it as IntValue).value }, listOf(1, 2))
-        Assert.assertEquals(list.slice(-3, 2).toList().map{ (it as IntValue).value }, listOf(1, 2, 3))
+        Assert.assertEquals(list.list.slice(0, 2).toList().map{ (it as IntValue).value }, listOf(1, 2, 3))
+        Assert.assertEquals(list.list.slice(0, 1).toList().map{ (it as IntValue).value }, listOf(1, 2))
+        Assert.assertEquals(list.list.slice(-3, 2).toList().map{ (it as IntValue).value }, listOf(1, 2, 3))
     }
 }

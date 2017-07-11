@@ -2,6 +2,7 @@ package org.botellier.server
 
 import org.botellier.command.*
 import org.botellier.serializer.toByteArray
+import org.botellier.store.StoreException
 
 data class Request(val client: Client, val command: Command)
 
@@ -33,15 +34,15 @@ class RequestDispatcher(val server: Server) {
                             writer.write(result.toByteArray())
                         }
                         else -> {
-                            throw Command.CommandException("Invalid command.")
+                            throw CommandException.RuntimeException("Invalid command.")
                         }
                     }
                 }
                 else ->
-                    throw Command.CommandException("Not authenticated. Use AUTH command.")
+                    throw CommandException.RuntimeException("Not authenticated. Use AUTH command.")
             }
         }
-        catch (e: Command.WrongTypeException) {
+        catch (e: StoreException.InvalidTypeException) {
             writer.write("-WRONGTYPE ${e.message}\r\n".toByteArray())
         }
         catch (e: Throwable) {

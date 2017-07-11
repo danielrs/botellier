@@ -12,43 +12,56 @@ class CommandsTest {
     fun delCommand() {
         val store = Store()
         val del = DelCommand()
-        store.set("key0", IntValue(1))
-        store.set("key1", IntValue(2))
-        store.set("key2", IntValue(3))
-        del.key = CValue.Primitive.String("key0")
+
+        store.transaction().begin {
+            set("one", IntValue(1))
+            set("two", IntValue(2))
+            set("three", IntValue(3))
+            set("four", IntValue(4))
+        }
+
+        del.key = CValue.Primitive.String("one")
         del.rest = CValue.Array.String(listOf(
-                CValue.Primitive.String("key1"),
-                CValue.Primitive.String("key2")
+                CValue.Primitive.String("two"),
+                CValue.Primitive.String("three")
         ))
         Assert.assertEquals(StringValue("OK"), del.execute(store))
-        Assert.assertEquals(0, store.size)
+        Assert.assertEquals(1, store.size)
     }
 
     @Test
     fun existsCommand() {
         val store = Store()
         val exists = ExistsCommand()
-        store.set("key0", IntValue(1))
-        store.set("key1", IntValue(2))
-        store.set("key2", IntValue(3))
-        exists.key = CValue.Primitive.String("key0")
+
+        store.transaction().begin {
+            set("one", IntValue(1))
+            set("two", IntValue(2))
+            set("three", IntValue(3))
+        }
+
+        exists.key = CValue.Primitive.String("one")
         exists.rest = CValue.Array.String(listOf(
-                CValue.Primitive.String("key1"),
-                CValue.Primitive.String("key2"),
+                CValue.Primitive.String("two"),
+                CValue.Primitive.String("three"),
                 CValue.Primitive.String("not key"),
-                CValue.Primitive.String("key1")
+                CValue.Primitive.String("not there neither")
         ))
-        Assert.assertEquals(IntValue(4), exists.execute(store))
+        Assert.assertEquals(IntValue(3), exists.execute(store))
     }
 
     @Test
     fun keysCommand() {
         val store = Store()
         val keys = KeysCommand()
-        store.set("key", IntValue(1))
-        store.set("hey", IntValue(1))
-        store.set("trolleyish", IntValue(1))
-        keys.pattern = CValue.Primitive.String(".*ey$")
+
+        store.transaction().begin {
+            set("one", IntValue(1))
+            set("prone", StringValue("yes"))
+            set("two", IntValue(2))
+        }
+
+        keys.pattern = CValue.Primitive.String(".*ne")
         Assert.assertEquals(IntValue(2), (keys.execute(store) as ListValue).size)
     }
 
@@ -56,23 +69,32 @@ class CommandsTest {
     fun renameCommand() {
         val store = Store()
         val rename = RenameCommand()
-        store.set("key", IntValue(1))
-        rename.key = CValue.Primitive.String("key")
-        rename.newkey = CValue.Primitive.String("newkey")
+
+        store.transaction().begin {
+            set("one", IntValue(1))
+        }
+
+        rename.key = CValue.Primitive.String("one")
+        rename.newkey = CValue.Primitive.String("uno")
         Assert.assertEquals(StringValue("OK"), rename.execute(store))
-        Assert.assertEquals(NilValue(), store.get("key"))
-        Assert.assertEquals(IntValue(1), store.get("newkey"))
+        Assert.assertEquals(NilValue(), store.get("one"))
+        Assert.assertEquals(IntValue(1), store.get("uno"))
+
         rename.key = rename.newkey
         Assert.assertEquals(StringValue("OK"), rename.execute(store))
-        Assert.assertEquals(IntValue(1), store.get("newkey"))
+        Assert.assertEquals(IntValue(1), store.get("uno"))
     }
 
     @Test
     fun typeCommand() {
         val store = Store()
         val type = TypeCommand()
-        store.set("key", IntValue(1))
-        type.key = CValue.Primitive.String("key")
+
+        store.transaction().begin {
+            set("one", IntValue(1))
+        }
+
+        type.key = CValue.Primitive.String("one")
         Assert.assertEquals(StringValue("IntValue"), type.execute(store))
         type.key = CValue.Primitive.String("not key")
         Assert.assertEquals(StringValue("NilValue"), type.execute(store))
@@ -84,37 +106,48 @@ class CommandsTest {
     fun lindexCommand() {
         val store = Store()
         val lindex = LIndexCommand()
-        store.set("key", ListValue(listOf(IntValue(1), IntValue(2), IntValue(3))))
-        lindex.key = CValue.Primitive.String("key")
-        lindex.index = CValue.Primitive.Int(1)
-        Assert.assertEquals(IntValue(2), lindex.execute(store))
+
+        store.transaction().begin {
+            set("list", listOf(1, 2, 3).map { it.toValue() }.toValue())
+        }
+
+        lindex.key = CValue.Primitive.String("list")
+        lindex.index = CValue.Primitive.Int(2)
+        Assert.assertEquals(IntValue(3), lindex.execute(store))
     }
 
     @Test
     fun linsertCommand() {
         val store = Store()
         val linsert = LInsertCommand()
-        store.set("key", ListValue(listOf(IntValue(0), IntValue(2), IntValue(4))))
 
-        linsert.key = CValue.Primitive.String("key")
+        store.transaction().begin {
+            set("list", listOf(1, 2, 3).map { it.toValue() }.toValue())
+        }
+
+        linsert.key = CValue.Primitive.String("list")
         linsert.position = CValue.Primitive.String("BEFORE")
-        linsert.pivot = CValue.Primitive.Int(2)
-        linsert.value = CValue.Primitive.Int(1)
+        linsert.pivot = CValue.Primitive.Int(1)
+        linsert.value = CValue.Primitive.Int(0)
         Assert.assertEquals(IntValue(4), linsert.execute(store))
-        Assert.assertEquals(IntValue(1), (store.get("key") as ListValue).get(1))
+        Assert.assertEquals(IntValue(0), (store.get("list") as ListValue).list.get(0))
 
         linsert.position = CValue.Primitive.String("AFTER")
-        linsert.value = CValue.Primitive.Int(3)
+        linsert.value = CValue.Primitive.Float(1.5)
         Assert.assertEquals(IntValue(5), linsert.execute(store))
-        Assert.assertEquals(IntValue(3), (store.get("key") as ListValue).get(3))
+        Assert.assertEquals(FloatValue(1.5), (store.get("list") as ListValue).list.get(2))
     }
 
     @Test
     fun llenCommand() {
         val store = Store()
         val llen = LLenCommand()
-        store.set("key", ListValue(listOf(IntValue(0), IntValue(2), IntValue(4))))
-        llen.key = CValue.Primitive.String("key")
+
+        store.transaction().begin {
+            set("list", listOf(1, 2, 3).map { it.toValue() }.toValue())
+        }
+
+        llen.key = CValue.Primitive.String("list")
         Assert.assertEquals(IntValue(3), llen.execute(store))
         llen.key = CValue.Primitive.String("not key")
         Assert.assertEquals(IntValue(0), llen.execute(store))
@@ -124,8 +157,12 @@ class CommandsTest {
     fun lpopCommand() {
         val store = Store()
         val lpop = LPopCommand()
-        store.set("key", ListValue(listOf(IntValue(1), IntValue(2), IntValue(3))))
-        lpop.key = CValue.Primitive.String("key")
+
+        store.transaction().begin {
+            set("list", listOf(1, 2, 3).map { it.toValue() }.toValue())
+        }
+
+        lpop.key = CValue.Primitive.String("list")
         Assert.assertEquals(IntValue(1), lpop.execute(store))
         Assert.assertEquals(IntValue(2), lpop.execute(store))
         Assert.assertEquals(IntValue(3), lpop.execute(store))
@@ -136,19 +173,23 @@ class CommandsTest {
     fun lpushCommand() {
         val store = Store()
         val lpush = LPushCommand()
-        lpush.key = CValue.Primitive.String("key")
+        lpush.key = CValue.Primitive.String("new-list")
         lpush.value = CValue.Primitive.Int(1)
         lpush.rest = CValue.Array.Any(listOf(CValue.Primitive.Float(2.0), CValue.Primitive.String("three")))
         Assert.assertEquals(IntValue(3), lpush.execute(store))
-        Assert.assertEquals(IntValue(1), (store.get("key") as ListValue).rpop())
+        Assert.assertEquals(IntValue(1), (store.get("new-list") as ListValue).list.last())
     }
 
     @Test
     fun lrangeCommand() {
         val store = Store()
         val lrange = LRangeCommand()
-        store.set("key", ListValue(listOf(IntValue(1), IntValue(2), IntValue(3))))
-        lrange.key = CValue.Primitive.String("key")
+
+        store.transaction().begin {
+            set("list", listOf(1, 2, 3).map { it.toValue() }.toValue())
+        }
+
+        lrange.key = CValue.Primitive.String("list")
         lrange.start = CValue.Primitive.Int(-2)
         lrange.stop = CValue.Primitive.Int(2)
         Assert.assertEquals(listOf(2, 3), (lrange.execute(store) as ListValue).toList().map { (it as IntValue).value })
@@ -158,39 +199,51 @@ class CommandsTest {
     fun lremCommand() {
         val store = Store()
         val lrem = LRemCommand()
-        lrem.key = CValue.Primitive.String("key")
+        lrem.key = CValue.Primitive.String("list")
 
-        store.set("key", ListValue(listOf(IntValue(1), IntValue(1), IntValue(2), IntValue(2))))
+        store.transaction().begin {
+            set("list", listOf(1, 1, 2, 2).map { it.toValue() }.toValue())
+        }
+
         lrem.count = CValue.Primitive.Int(-2)
         lrem.value = CValue.Primitive.Int(1)
         Assert.assertEquals(IntValue(2), lrem.execute(store))
-        Assert.assertEquals(listOf(2, 2), (store.get("key") as ListValue).toList().map { (it as IntValue).value })
+        Assert.assertEquals(listOf(2, 2), (store.get("list") as ListValue).toList().map { (it as IntValue).value })
 
-        store.set("key", ListValue(listOf(IntValue(1), IntValue(1), IntValue(2), IntValue(2))))
+        store.transaction().begin {
+            set("list", listOf(1, 1, 2, 2).map { it.toValue() }.toValue())
+        }
+
         lrem.count = CValue.Primitive.Int(2)
         lrem.value = CValue.Primitive.Int(2)
         Assert.assertEquals(IntValue(2), lrem.execute(store))
-        Assert.assertEquals(listOf(1, 1), (store.get("key") as ListValue).toList().map { (it as IntValue).value })
+        Assert.assertEquals(listOf(1, 1), (store.get("list") as ListValue).toList().map { (it as IntValue).value })
     }
 
     @Test
     fun lsetCommand() {
         val store = Store()
         val lset = LSetCommand()
-        store.set("key", ListValue(listOf(IntValue(1), IntValue(2), IntValue(4))))
-        lset.key = CValue.Primitive.String("key")
+
+        store.transaction().begin {
+            set("list", listOf(1, 2, 3).map { it.toValue() }.toValue())
+        }
+
+        lset.key = CValue.Primitive.String("list")
         lset.index = CValue.Primitive.Int(2)
         lset.value = CValue.Primitive.Int(3)
         Assert.assertEquals(StringValue("OK"), lset.execute(store))
-        Assert.assertEquals(IntValue(3), (store.get("key") as ListValue).get(2))
+        Assert.assertEquals(IntValue(3), (store.get("list") as ListValue).list.get(2))
     }
 
     @Test
     fun ltrimCommand() {
         val store = Store()
         val ltrim = LTrimCommand()
-        store.set("key", ListValue(listOf(IntValue(1), IntValue(2), IntValue(3))))
-        ltrim.key = CValue.Primitive.String("key")
+        store.transaction().begin {
+            set("list", listOf(1, 2, 3).map { it.toValue() }.toValue())
+        }
+        ltrim.key = CValue.Primitive.String("list")
         ltrim.start = CValue.Primitive.Int(0)
         ltrim.stop = CValue.Primitive.Int(1)
         Assert.assertEquals(StringValue("OK"), ltrim.execute(store))
@@ -205,8 +258,10 @@ class CommandsTest {
     fun rpopCommand() {
         val store = Store()
         val rpop = RPopCommand()
-        store.set("key", ListValue(listOf(IntValue(1), IntValue(2), IntValue(3))))
-        rpop.key = CValue.Primitive.String("key")
+        store.transaction().begin {
+            set("list", listOf(1, 2, 3).map { it.toValue() }.toValue())
+        }
+        rpop.key = CValue.Primitive.String("list")
         Assert.assertEquals(IntValue(3), rpop.execute(store))
         Assert.assertEquals(IntValue(2), rpop.execute(store))
         Assert.assertEquals(IntValue(1), rpop.execute(store))
@@ -217,11 +272,11 @@ class CommandsTest {
     fun rpushCommand() {
         val store = Store()
         val rpush = RPushCommand()
-        rpush.key = CValue.Primitive.String("key")
+        rpush.key = CValue.Primitive.String("list")
         rpush.value = CValue.Primitive.Int(1)
         rpush.rest = CValue.Array.Any(listOf(CValue.Primitive.Float(2.0), CValue.Primitive.String("three")))
         Assert.assertEquals(IntValue(3), rpush.execute(store))
-        Assert.assertEquals(IntValue(1), (store.get("key") as ListValue).lpop())
+        Assert.assertEquals(IntValue(1), (store.get("list") as ListValue).list.first())
     }
 
     // Strings.
@@ -263,7 +318,9 @@ class CommandsTest {
     fun getCommand() {
         val store = Store()
         val get = GetCommand()
-        store.set("key", StringValue("Hello, world!"))
+        store.transaction().begin {
+            set("key", StringValue("Hello, world!"))
+        }
         get.key = CValue.Primitive.String("key")
         Assert.assertEquals(StringValue("Hello, world!"), get.execute(store))
     }
@@ -301,11 +358,13 @@ class CommandsTest {
     fun mgetCommand() {
         val store = Store()
         val mget = MGetCommand()
-        store.set("key1", IntValue(1))
-        mget.key = CValue.Primitive.String("key0")
-        mget.rest = CValue.Array.String(listOf("key1", "key2").map(CValue.Primitive::String))
+        store.transaction().begin {
+            set("one", IntValue(1))
+        }
+        mget.key = CValue.Primitive.String("zero")
+        mget.rest = CValue.Array.String(listOf("one", "two").map(CValue.Primitive::String))
 
-        val list = mget.execute(store) as ListValue
+        val list = (mget.execute(store) as ListValue).list
         Assert.assertEquals(NilValue(), list.get(0))
         Assert.assertEquals(IntValue(1), list.get(1))
         Assert.assertEquals(NilValue(), list.get(2))
@@ -341,8 +400,10 @@ class CommandsTest {
     fun strlenCommand() {
         val store = Store()
         val strlen = StrlenCommand()
-        store.set("key", StringValue("Hello, world!"))
-        strlen.key = CValue.Primitive.String("key")
+        store.transaction().begin {
+            set("message", StringValue("Hello, world!"))
+        }
+        strlen.key = CValue.Primitive.String("message")
         Assert.assertEquals(IntValue(13), strlen.execute(store))
     }
 }
