@@ -1,5 +1,6 @@
 package org.botellier.command
 
+import org.botellier.value.Lexer
 import kotlin.reflect.full.createInstance
 
 class CommandParser {
@@ -13,7 +14,7 @@ class CommandParser {
                     val command = commandClass.createInstance()
 
                     if (command.parameters.isNotEmpty()) {
-                        parse(tokens.drop(1)) {
+                        org.botellier.value.parse(tokens.drop(1)) {
                             for (p in command.parameters) {
                                 when {
                                     p.isInt -> p.set(CValue.Primitive.Int(int()))

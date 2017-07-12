@@ -1,4 +1,4 @@
-package org.botellier.store
+package org.botellier.value
 
 import org.junit.Assert
 import org.junit.Test

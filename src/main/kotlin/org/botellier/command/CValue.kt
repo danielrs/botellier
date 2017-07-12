@@ -1,6 +1,6 @@
 package org.botellier.command
 
-import org.botellier.store.*
+import org.botellier.value.*
 
 fun CValue.Primitive.toValue(): StorePrimitive {
     return when (this) {

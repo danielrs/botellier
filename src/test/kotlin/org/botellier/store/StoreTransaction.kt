@@ -1,5 +1,7 @@
 package org.botellier.store
 
+import org.botellier.value.IntValue
+import org.botellier.value.NilValue
 import org.junit.Test
 import org.junit.Assert
 

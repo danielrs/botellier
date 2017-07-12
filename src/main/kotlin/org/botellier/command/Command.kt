@@ -3,6 +3,7 @@ package org.botellier.command
 import org.botellier.server.Client
 import org.botellier.server.Server
 import org.botellier.store.*
+import org.botellier.value.StoreValue
 import kotlin.reflect.KMutableProperty
 import kotlin.reflect.full.declaredMemberProperties
 
@@ -117,7 +118,12 @@ abstract class StoreCommand : Command() {
     fun execute(store: Store): StoreValue {
         this.transaction = store.transaction()
         val ret = run(this.transaction!!)
-        this.transaction!!.commit()
+
+        if (store is PersistentStore) {
+            this.transaction!!.commit(store.log)
+        } else {
+            this.transaction!!.commit()
+        }
 
         return ret
     }

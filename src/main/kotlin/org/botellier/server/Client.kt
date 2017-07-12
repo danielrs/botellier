@@ -1,8 +1,10 @@
 package org.botellier.server
 
 import org.botellier.command.CommandParser
-import org.botellier.command.Lexer
-import org.botellier.command.Parser
+import org.botellier.value.Lexer
+import org.botellier.value.LexerException
+import org.botellier.value.ParserException
+import org.botellier.value.toList
 import java.net.Socket
 import java.net.SocketException
 import java.net.SocketTimeoutException
@@ -28,7 +30,7 @@ class ClientHandler(val client: Client, val dispatcher: RequestDispatcher) : Run
                 val stream = client.socket.waitInput()
 
                 client.socket.soTimeout = readTimeout
-                val tokens = Lexer(stream).lex()
+                val tokens = Lexer(stream).lex().toList()
                 client.socket.soTimeout = 0
 
                 val command = CommandParser.parse(tokens)
@@ -46,11 +48,11 @@ class ClientHandler(val client: Client, val dispatcher: RequestDispatcher) : Run
                         writer.write("-ERR Command read timeout\r\n")
 
                     // Exception regarding the serialized data.
-                    is Lexer.LexerException ->
+                    is LexerException ->
                         writer.write("-COMMANDERR Unable to read command\r\n")
 
                     // Exception regarding the structure of the data.
-                    is Parser.ParserException ->
+                    is ParserException ->
                         writer.write("-COMMANDERR Unable to parse command\r\n")
 
                     // Exception regarding unknown command.

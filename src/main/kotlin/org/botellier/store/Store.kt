@@ -1,6 +1,8 @@
 package org.botellier.store
 
-import org.botellier.log.Log
+import org.botellier.value.MapValue
+import org.botellier.value.NilValue
+import org.botellier.value.StoreValue
 
 /**
  * Read only store.
@@ -23,10 +25,8 @@ interface WriteStore {
  * way to add/modify the stored values is through a transaction.
  * @see StoreTransaction
  */
-class Store(initialMap: MapValue = MapValue()) : ReadStore, WriteStore {
-    private val map = initialMap
-    val log = Log()
-
+open class Store(initialMap: MapValue = MapValue()) : ReadStore, WriteStore {
+    protected val map = initialMap
     override val keys get() = map.unwrap().keys
     override val size  get() = map.size
 

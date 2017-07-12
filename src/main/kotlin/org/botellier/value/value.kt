@@ -1,4 +1,4 @@
-package org.botellier.store
+package org.botellier.value
 
 import java.util.concurrent.ConcurrentHashMap
 
@@ -33,7 +33,7 @@ interface StoreValue: StoreType {
     override fun clone(): StoreValue
 }
 
-interface StorePrimitive : StoreValue  {
+interface StorePrimitive : StoreValue {
     override fun clone(): StorePrimitive
 }
 

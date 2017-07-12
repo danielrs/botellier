@@ -11,7 +11,6 @@ class RequestDispatcher(val server: Server) {
         val writer = request.client.socket.getOutputStream()
         val isAuthenticated = !server.requiresPassword() || request.client.isAuthenticated
         try {
-            server.log.create(request.command.name, request.command.toString().toByteArray())
             when {
                 request.command is AuthCommand -> {
                     val result = request.command.execute(server, request.client)
@@ -28,13 +27,18 @@ class RequestDispatcher(val server: Server) {
                             val result = request.command.execute(server, request.client)
                             writer.write(result.toByteArray())
                         }
+                        is ReadStoreCommand -> {
+                            val store = server.dbs[request.client.dbIndex]
+                            val result = request.command.execute(store)
+                            writer.write(result.toByteArray())
+                        }
                         is StoreCommand -> {
                             val store = server.dbs[request.client.dbIndex]
                             val result = request.command.execute(store)
                             writer.write(result.toByteArray())
                         }
                         else -> {
-                            throw CommandException.RuntimeException("Invalid command.")
+                            throw CommandException.RuntimeException("Invalid commands.")
                         }
                     }
                 }

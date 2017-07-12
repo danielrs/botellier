@@ -1,11 +1,14 @@
-package org.botellier.command
+package org.botellier.value
 
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
+import java.io.EOFException
 import java.io.InputStream
 
 private val CR = '\r'.toInt()
 private val LF = '\n'.toInt()
+private val COLON = ':'.toInt()
+private val SEMICOLON = ';'.toInt()
 private val DOLLAR = '$'.toInt()
 private val STAR = '*'.toInt()
 
@@ -13,72 +16,100 @@ private val STAR = '*'.toInt()
 // check: http://llvm.org/docs/tutorial/index.html
 /**
  * Lexer class takes an input stream and lexes byte by byte. Useful for
- * lexing information that is being received through a socket.
+ * reading information that is being received through a socket.
+ * @param bufferedInputStream the buffered input stream (required for peeking values
+ * and such).
  */
 class Lexer(bufferedInputStream: BufferedInputStream) {
     private var index = 0
-    private val reader: BufferedInputStream = bufferedInputStream
+    private val reader = bufferedInputStream
 
-    constructor(inputStream: InputStream) : this(inputStream.buffered())
     constructor(string: String) : this(string.byteInputStream().buffered())
 
     /**
-     * Returns a list of tokens from the given string.
-     * @return a list of tokens.
+     * Returns a token.
+     * @return a token.
      * @throws LexerException if the string format is invalid.
      */
-    fun lex(): List<Token> {
-        val result = mutableListOf<Token>()
-
-        // Lexing begins here.
+    fun lex(): Token {
         index = 0
-        val char = reader.peek()
-        when (char) {
-            DOLLAR -> result.add(token())
-            STAR -> result.add(tokenList())
-            else -> throw LexerException(index, "Expected '$' or '*' found '$char'.")
-        }
-
-        if (result.size == 1 && result.first() is ListToken) {
-            return (result.first() as ListToken).value
-        }
-        else {
-            return result
-        }
+        return token()
     }
 
     // Lexing functions.
-    private fun token(): PrimitiveToken {
+    private fun token(): Token {
+        val next = reader.peek()
+        return when(next) {
+            COLON -> intToken()
+            SEMICOLON -> floatToken()
+            DOLLAR -> stringToken()
+            STAR -> listToken()
+            else -> throw LexerException.LexingException(index, "Expected one of ':', ';', '$', '*'; found '$next'.")
+        }
+    }
+
+    private fun primitiveToken(): PrimitiveToken {
+        val next = reader.peek()
+        return when(next) {
+            COLON -> intToken()
+            SEMICOLON -> floatToken()
+            DOLLAR -> stringToken()
+            else -> throw LexerException.LexingException(index, "Expected one of ':', ';', '$'; found '$next'.")
+        }
+    }
+
+    private fun intToken(): PrimitiveToken {
+        reader.expect(COLON)
+        return IntToken(int())
+    }
+
+    private fun floatToken(): PrimitiveToken {
+        reader.expect(SEMICOLON)
+        return FloatToken(float())
+    }
+
+    private fun stringToken(): PrimitiveToken {
         reader.expect(DOLLAR)
         val length = int()
         val bulk = bulkString(length)
         return castToken(bulk)
     }
 
-    private fun tokenList(): ListToken {
+    private fun listToken(): ListToken {
         reader.expect(STAR)
         val length = int()
         val array = ArrayList<PrimitiveToken>(length)
         for (i in 0..length - 1) {
-            array.add(token())
+            array.add(primitiveToken())
         }
         return ListToken(array.toList())
     }
 
     private fun int(): Int {
         val number = reader.readWhile { it != CR }
+        reader.expect(CR)
         reader.expect(LF)
         try {
-            return Integer.parseInt(String(number))
+            return String(number).toInt()
+        } catch (e: NumberFormatException) {
+            throw LexerException.LexingException(index, "Invalid integer number.")
         }
-        catch (e: NumberFormatException) {
-            throw LexerException(index, "Invalid number.")
+    }
+
+    private fun float(): Double {
+        val number = reader.readWhile { it != CR }
+        reader.expect(CR)
+        reader.expect(LF)
+        try {
+            return String(number).toDouble()
+        } catch (e: NumberFormatException) {
+            throw LexerException.LexingException(index, "Invalid floating point number.")
         }
     }
 
     private fun bulkString(length: Int): ByteArray {
         if (length <= 0) {
-            throw LexerException(index, "Bulk strings must have positive length.")
+            throw LexerException.LexingException(index, "Bulk strings must have positive length.")
         }
 
         val string = reader.readBytes(length)
@@ -88,7 +119,6 @@ class Lexer(bufferedInputStream: BufferedInputStream) {
         return string
     }
 
-    // Utilities
     private fun castToken(bytes: ByteArray): PrimitiveToken {
         val string = String(bytes)
         try {
@@ -101,11 +131,14 @@ class Lexer(bufferedInputStream: BufferedInputStream) {
             }
         }
         catch(e: NumberFormatException) {
-            throw LexerException(index, "Unable to cast \"$string\" to a token.")
+            throw LexerException.LexingException(index, "Unable to cast \"$string\" to a token.")
         }
     }
 
-    // Extension functions.
+    // ----------------
+    // Extension functions for BufferedInputStream.
+    // ----------------
+
     private fun BufferedInputStream.readByte(): Int {
         val byte = this.read()
         if (byte != -1) {
@@ -113,7 +146,7 @@ class Lexer(bufferedInputStream: BufferedInputStream) {
             return byte
         }
         else {
-            throw LexerException(index, "Unexpected end of input.")
+            throw LexerException.EOFException(index)
         }
     }
 
@@ -125,7 +158,7 @@ class Lexer(bufferedInputStream: BufferedInputStream) {
             return byte
         }
         else {
-            throw LexerException(index, "Trying to peek end of input")
+            throw LexerException.EOFException(index)
         }
     }
 
@@ -142,10 +175,10 @@ class Lexer(bufferedInputStream: BufferedInputStream) {
     private fun BufferedInputStream.readWhile(pred: (Int) -> Boolean): ByteArray {
         val stream = ByteArrayOutputStream()
 
-        var byte = this.readByte()
+        var byte = this.peek()
         while (pred(byte)) {
-            stream.write(byte)
-            byte = this.readByte()
+            stream.write(this.readByte())
+            byte = this.peek()
         }
 
         return stream.toByteArray()
@@ -157,11 +190,14 @@ class Lexer(bufferedInputStream: BufferedInputStream) {
             return actual
         }
         else {
-            throw LexerException(index, "Expected '$expected'; found '$actual'.")
+            throw LexerException.LexingException(index, "Expected '$expected'; found '$actual'.")
         }
     }
 
+    // ----------------
     // Inner classes.
+    // ----------------
+
     interface Token
     interface PrimitiveToken : Token
 
@@ -170,6 +206,16 @@ class Lexer(bufferedInputStream: BufferedInputStream) {
     data class StringToken(val value: String) : PrimitiveToken
     data class ListToken(val value: List<PrimitiveToken>) : Token
 
-    // Exceptions.
-    class LexerException(index: Int, message: String?) : Throwable("(At [$index]) $message")
+}
+
+fun Lexer.Token.toList(): List<Lexer.Token> {
+    return when (this) {
+        is Lexer.ListToken -> this.value
+        else -> listOf(this)
+    }
+}
+
+sealed class LexerException(index: Int, msg: String) : Throwable("(At [$index]) $msg") {
+    class LexingException(index: Int, msg: String) : LexerException(index, msg)
+    class EOFException(index: Int) : LexerException(index, "Unexpected end of input")
 }

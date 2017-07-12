@@ -1,5 +1,6 @@
-package org.botellier.command
+package org.botellier.value
 
+import org.botellier.value.parse
 import org.junit.Assert
 import org.junit.Test
 
@@ -48,7 +49,11 @@ class ParserTest {
 
         parse(message) {
             while (true) {
-                try { values.add(string()) } catch(e: Throwable) { break }
+                try {
+                    values.add(string())
+                } catch(e: Throwable) {
+                    break
+                }
             }
         }
 

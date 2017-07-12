@@ -3,6 +3,7 @@ package org.botellier.command
 import org.botellier.server.Client
 import org.botellier.server.Server
 import org.botellier.store.*
+import org.botellier.value.*
 import kotlin.reflect.full.createInstance
 
 // from: https://redis.io/commands

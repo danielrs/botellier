@@ -1,10 +1,10 @@
 package org.botellier.serializer
 
-import org.botellier.store.*
+import org.botellier.value.*
 
 class JsonSerializer(override val value: StoreType,
-                  var pretty: Boolean = true,
-                  var indent: String = "    ") : Serializer {
+                     var pretty: Boolean = true,
+                     var indent: String = "    ") : Serializer {
 
     override fun serialize(): ByteArray = print().toByteArray()
 

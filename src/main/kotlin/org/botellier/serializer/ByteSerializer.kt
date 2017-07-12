@@ -1,6 +1,6 @@
 package org.botellier.serializer
 
-import org.botellier.store.*
+import org.botellier.value.*
 import java.io.ByteArrayOutputStream
 
 private val CR: Byte = '\r'.toByte()

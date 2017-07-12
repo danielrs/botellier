@@ -1,6 +1,6 @@
 package org.botellier.serializer
 
-import org.botellier.store.*
+import org.botellier.value.*
 import org.junit.Assert
 import org.junit.Test
 

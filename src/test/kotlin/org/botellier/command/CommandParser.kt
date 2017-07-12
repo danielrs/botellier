@@ -1,7 +1,9 @@
 package org.botellier.command
 
 import org.botellier.serializer.toByteArray
-import org.botellier.store.toValue
+import org.botellier.value.Lexer
+import org.botellier.value.toList
+import org.botellier.value.toValue
 
 import org.junit.Assert
 import org.junit.Test
@@ -152,7 +154,7 @@ class CommandParserTest {
 
     private fun toTokens(items: List<String>): List<Lexer.Token> {
         val listValue = items.map { it.toValue() }.toValue()
-        return Lexer(String(listValue.toByteArray())).lex()
+        return Lexer(String(listValue.toByteArray())).lex().toList()
     }
 
     private fun toTokens(vararg items: String): List<Lexer.Token> = toTokens(items.toList())
