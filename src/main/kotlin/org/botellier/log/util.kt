@@ -1,5 +1,16 @@
 package org.botellier.log
 
+import java.security.MessageDigest
+
+/**
+ * Digests the MessageDigest without reset.
+ * @param returns the digested data.
+ */
+fun MessageDigest.tryDigest(): ByteArray {
+    return (this.clone() as MessageDigest).digest()
+}
+
+
 /**
  * Convers the given long to a byte array of 8 bytes.
  */

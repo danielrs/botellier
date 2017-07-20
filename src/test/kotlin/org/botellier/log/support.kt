@@ -20,7 +20,7 @@ fun withDummy(n: Int = 0, cb: (File) -> Unit) {
     } catch (e: Throwable) {
         throw e
     } finally {
-        folder.delete()
+        folder.deleteRecursively()
     }
 }
 
@@ -37,3 +37,16 @@ private fun getFolderName(): File {
     }
 }
 
+/**
+ * Deletes folder recursively.
+ */
+private fun File.deleteRecursively() {
+    for (f in this.listFiles()) {
+        if (f.isDirectory) {
+            f.deleteRecursively()
+        } else if (f.isFile) {
+            f.delete()
+        }
+    }
+    this.delete()
+}

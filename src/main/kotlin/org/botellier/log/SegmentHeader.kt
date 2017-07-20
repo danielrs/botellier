@@ -44,7 +44,7 @@ class SegmentHeader private constructor(initialId: Int, initialChecksum: String,
      * @param md the MessageDigest to use for initial checksum.
      */
     constructor(md: MessageDigest) : this(0, "", 0) {
-        checksum = md.digest().toHexString()
+        checksum = md.tryDigest().toHexString()
     }
 
     /**
@@ -53,7 +53,7 @@ class SegmentHeader private constructor(initialId: Int, initialChecksum: String,
      * @param md the MessageDigest instance to use for obtaining the checksum.
      */
     fun update(md: MessageDigest) {
-        checksum = md.digest().toHexString()
+        checksum = md.tryDigest().toHexString()
         totalEntries++
     }
 

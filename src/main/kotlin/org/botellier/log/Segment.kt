@@ -39,10 +39,11 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
         header = if (file.exists()) SegmentHeader.parseFrom(file.inputStream()) else SegmentHeader(md)
 
         // Validates checksum.
-        rawIterator().forEach { md.update(it) }
-        val checksum = md.digest().toHexString()
+        rawIterator().forEach { md.update(it.size.toByteArray()); md.update(it) }
+        val checksum = md.tryDigest().toHexString()
+
         if (header.checksum != checksum) {
-            throw SegmentException.ChecksumException()
+            throw SegmentException.ChecksumException(header.checksum, checksum)
         }
     }
 
@@ -62,17 +63,6 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      */
     fun clear() = file.delete()
 
-    /**
-     * Returns the checksum of the segment file. Note that this
-     * function iterates the *whole* file, so it is going
-     * to take some time with big files.
-     */
-    fun checksum(): ByteArray {
-        val md = MessageDigest.getInstance("MD5")
-        rawIterator().forEach { md.update(it) }
-        return md.digest()
-    }
-
     // ----------------
     // Operations on segment
     // ----------------
@@ -87,14 +77,9 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      */
     fun delete(id: Int, key: String) {
         segmentOperation(id) {
-            val entry = buildDeleteEntry(id) {
+            buildDeleteEntry(id) {
                 this.key = key
             }
-
-            val buffer = ByteArrayOutputStream()
-            buffer.write(entry.protos.serializedSize.toByteArray())
-            buffer.write(entry.protos.toByteArray())
-            buffer.toByteArray()
         }
     }
 
@@ -110,16 +95,11 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      */
     fun set(id: Int, key: String, before: ByteArray, after: ByteArray) {
         segmentOperation(id) {
-            val entry = buildSetEntry(id) {
+            buildSetEntry(id) {
                 this.key = key
                 this.before = ByteString.copyFrom(before)
                 this.after = ByteString.copyFrom(after)
             }
-
-            val buffer = ByteArrayOutputStream()
-            buffer.write(entry.protos.serializedSize.toByteArray())
-            buffer.write(entry.protos.toByteArray())
-            buffer.toByteArray()
         }
     }
 
@@ -136,16 +116,11 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      */
     fun create(id: Int, key: String, data: ByteArray) {
         segmentOperation(id) {
-            val entry = buildSetEntry(id) {
+            buildSetEntry(id) {
                 this.key = key
                 this.before = ByteString.EMPTY
                 this.after = ByteString.copyFrom(data)
             }
-
-            val buffer = ByteArrayOutputStream()
-            buffer.write(entry.protos.serializedSize.toByteArray())
-            buffer.write(entry.protos.toByteArray())
-            buffer.toByteArray()
         }
     }
 
@@ -155,11 +130,7 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      */
     fun beginTransaction(id: Int) {
         segmentOperation(id) {
-            val entry = buildBeginTransactionEntry(id) {}
-            val buffer = ByteArrayOutputStream()
-            buffer.write(entry.protos.serializedSize.toByteArray())
-            buffer.write(entry.protos.toByteArray())
-            buffer.toByteArray()
+            buildBeginTransactionEntry(id) {}
         }
     }
 
@@ -169,11 +140,7 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      */
     fun endTransaction(id: Int) {
         segmentOperation(id) {
-            val entry = buildEndTransactionEntry(id) {}
-            val buffer = ByteArrayOutputStream()
-            buffer.write(entry.protos.serializedSize.toByteArray())
-            buffer.write(entry.protos.toByteArray())
-            buffer.toByteArray()
+            buildEndTransactionEntry(id) {}
         }
     }
 
@@ -181,15 +148,16 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
     // Misc functions.
     // ----------------
 
-    private fun segmentOperation(id: Int, block: () -> ByteArray) {
+    private fun segmentOperation(id: Int, block: () -> Entry) {
         if (file.length() >= maxSize) {
             throw SegmentException.SizeException()
         } else {
-            val data = block()
+            val entry = block()
 
             // Updates and writes header.
             if (header.totalEntries <= 0) { header.id = id }
-            md.update(data)
+            md.update(entry.protos.serializedSize.toByteArray())
+            md.update(entry.protos.toByteArray())
             header.update(md)
 
             val raf = RandomAccessFile(file, "rw")
@@ -197,7 +165,8 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
             raf.write(header.toByteArray())
 
             // Writes new entry.
-            file.appendBytes(data)
+            file.appendBytes(entry.protos.serializedSize.toByteArray())
+            file.appendBytes(entry.protos.toByteArray())
         }
     }
 
@@ -235,7 +204,8 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
 sealed class SegmentException(msg: String) : Throwable(msg) {
     class SizeException : SegmentException("Maximum log-file size reached; consider using nextSegment().")
     class HeaderException : SegmentException("Invalid header")
-    class ChecksumException : SegmentException("Checksum won't match data")
+    class ChecksumException(before: String, after: String)
+        : SegmentException("Checksum mismatch. Header is '$before' while data is '$after'.")
 }
 
 /**

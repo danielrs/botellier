@@ -2,9 +2,7 @@ package org.botellier.log
 
 import org.junit.Test
 import org.junit.Assert
-import java.io.ByteArrayOutputStream
-import java.nio.ByteBuffer
-import kotlin.system.exitProcess
+import java.security.MessageDigest
 
 class SegmentTest {
     fun segment(maxSize: Int = 1*1024*1024, f: (Segment) -> Unit) {
@@ -78,5 +76,31 @@ class SegmentTest {
 
             Assert.assertEquals("010zero1one", res)
         }
+    }
+
+    @Test
+    fun checksumValidation() {
+        withDummy {
+            val segment = Segment(it.toString(), 0, "test-segment-")
+            segment.create(0, "zero", "0".toByteArray())
+            segment.create(1, "one", "1".toByteArray())
+            segment.create(2, "two", "2".toByteArray())
+
+            Segment(it.toString(), 0, "test-segment-")
+        }
+    }
+
+    @Test
+    fun messageDigest() {
+        val md0 = MessageDigest.getInstance("MD5")
+        val md1 = MessageDigest.getInstance("MD5")
+
+        md0.update(byteArrayOf(0, 1, 2, 3))
+
+        md1.update(byteArrayOf(0, 1))
+        md1.update(byteArrayOf(2))
+        md1.update(byteArrayOf(3))
+
+        Assert.assertArrayEquals(md0.digest(), md1.digest())
     }
 }
