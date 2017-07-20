@@ -2,6 +2,9 @@ package org.botellier.log
 
 import org.junit.Test
 import org.junit.Assert
+import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import kotlin.system.exitProcess
 
 class SegmentTest {
     fun segment(maxSize: Int = 1*1024*1024, f: (Segment) -> Unit) {
@@ -29,7 +32,7 @@ class SegmentTest {
 
     @Test
     fun iterating() {
-        segment(200) {
+        segment(250) {
             val oneBytes = "one".toByteArray()
             val twoBytes = "two".toByteArray()
             val threeBytes = "three".toByteArray()

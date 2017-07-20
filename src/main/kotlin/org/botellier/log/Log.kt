@@ -30,7 +30,8 @@ class Log(root: String = "./", val segmentPrefix: String = "segment-", val segme
         } else if (file.isFile) {
             path = givenPath.toAbsolutePath().parent.normalize()
         } else {
-            path = Paths.get("./").toAbsolutePath().normalize()
+            file.mkdirs()
+            path = givenPath.toAbsolutePath().normalize()
         }
 
         // Initializes segment.

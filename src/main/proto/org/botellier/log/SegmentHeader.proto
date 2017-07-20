@@ -1,0 +1,9 @@
+syntax = "proto3";
+package org.botellier.log;
+option java_outer_classname = "SegmentHeaderProtos";
+
+message SegmentHeader {
+    uint32 id = 1;
+    string checksum = 2;
+    uint32 total_entries = 3;
+}
