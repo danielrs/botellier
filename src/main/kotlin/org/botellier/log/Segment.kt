@@ -1,10 +1,12 @@
 package org.botellier.log
 
 import com.google.protobuf.ByteString
-import java.io.DataInputStream
-import java.io.EOFException
-import java.io.File
+import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream
+import org.apache.zookeeper.server.ByteBufferOutputStream
+import java.io.*
+import java.nio.file.Path
 import java.nio.file.Paths
+import java.security.MessageDigest
 import java.util.*
 
 /**
@@ -23,8 +25,26 @@ import java.util.*
  */
 class Segment(val root: String, val sequence: Int, val prefix: String = "segment-", val maxSize: Int = 1*1024*1024)
     : Iterable<Entry> {
-    val path = Paths.get(root, name()).toAbsolutePath().normalize()
-    private val file = File(path.toUri())
+
+    val path: Path
+    private val file: File
+    private val md: MessageDigest
+    private val header: SegmentHeader
+
+    init {
+        // Initialize props.
+        path = Paths.get(root, name()).toAbsolutePath().normalize()
+        file = File(path.toUri())
+        md = MessageDigest.getInstance("MD5")
+        header = if (file.exists()) SegmentHeader.parseFrom(file.inputStream()) else SegmentHeader(md)
+
+        // Validates checksum.
+        rawIterator().forEach { md.update(it) }
+        val checksum = md.digest().toHexString()
+        if (header.checksum != checksum) {
+            throw SegmentException.ChecksumException()
+        }
+    }
 
     /**
      * Returns the name of the segments.
@@ -43,6 +63,21 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
     fun clear() = file.delete()
 
     /**
+     * Returns the checksum of the segment file. Note that this
+     * function iterates the *whole* file, so it is going
+     * to take some time with big files.
+     */
+    fun checksum(): ByteArray {
+        val md = MessageDigest.getInstance("MD5")
+        rawIterator().forEach { md.update(it) }
+        return md.digest()
+    }
+
+    // ----------------
+    // Operations on segment
+    // ----------------
+
+    /**
      * Appends a new entry to the log file indicating
      * the deletion of 'key'.
      * @param id the id to use for the entry.
@@ -51,13 +86,15 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      * @see nextSegment for getting a new valid segment.
      */
     fun delete(id: Int, key: String) {
-        ensureSize {
+        segmentOperation(id) {
             val entry = buildDeleteEntry(id) {
                 this.key = key
             }
 
-            file.appendBytes(entry.protos.serializedSize.toByteArray())
-            file.appendBytes(entry.protos.toByteArray())
+            val buffer = ByteArrayOutputStream()
+            buffer.write(entry.protos.serializedSize.toByteArray())
+            buffer.write(entry.protos.toByteArray())
+            buffer.toByteArray()
         }
     }
 
@@ -72,15 +109,17 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      * @see nextSegment for getting a new valid segment.
      */
     fun set(id: Int, key: String, before: ByteArray, after: ByteArray) {
-        ensureSize {
+        segmentOperation(id) {
             val entry = buildSetEntry(id) {
                 this.key = key
                 this.before = ByteString.copyFrom(before)
                 this.after = ByteString.copyFrom(after)
             }
 
-            file.appendBytes(entry.protos.serializedSize.toByteArray())
-            file.appendBytes(entry.protos.toByteArray())
+            val buffer = ByteArrayOutputStream()
+            buffer.write(entry.protos.serializedSize.toByteArray())
+            buffer.write(entry.protos.toByteArray())
+            buffer.toByteArray()
         }
     }
 
@@ -96,15 +135,17 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      * @see nextSegment for getting a new valid segment.
      */
     fun create(id: Int, key: String, data: ByteArray) {
-        ensureSize {
+        segmentOperation(id) {
             val entry = buildSetEntry(id) {
                 this.key = key
                 this.before = ByteString.EMPTY
                 this.after = ByteString.copyFrom(data)
             }
 
-            file.appendBytes(entry.protos.serializedSize.toByteArray())
-            file.appendBytes(entry.protos.toByteArray())
+            val buffer = ByteArrayOutputStream()
+            buffer.write(entry.protos.serializedSize.toByteArray())
+            buffer.write(entry.protos.toByteArray())
+            buffer.toByteArray()
         }
     }
 
@@ -113,10 +154,12 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      * the beginning of a transaction.
      */
     fun beginTransaction(id: Int) {
-        ensureSize {
+        segmentOperation(id) {
             val entry = buildBeginTransactionEntry(id) {}
-            file.appendBytes(entry.protos.serializedSize.toByteArray())
-            file.appendBytes(entry.protos.toByteArray())
+            val buffer = ByteArrayOutputStream()
+            buffer.write(entry.protos.serializedSize.toByteArray())
+            buffer.write(entry.protos.toByteArray())
+            buffer.toByteArray()
         }
     }
 
@@ -125,10 +168,12 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      * the end of a transaction.
      */
     fun endTransaction(id: Int) {
-        ensureSize {
+        segmentOperation(id) {
             val entry = buildEndTransactionEntry(id) {}
-            file.appendBytes(entry.protos.serializedSize.toByteArray())
-            file.appendBytes(entry.protos.toByteArray())
+            val buffer = ByteArrayOutputStream()
+            buffer.write(entry.protos.serializedSize.toByteArray())
+            buffer.write(entry.protos.toByteArray())
+            buffer.toByteArray()
         }
     }
 
@@ -136,11 +181,23 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
     // Misc functions.
     // ----------------
 
-    private fun ensureSize(f: () -> Unit) {
+    private fun segmentOperation(id: Int, block: () -> ByteArray) {
         if (file.length() >= maxSize) {
-            throw SegmentException()
+            throw SegmentException.SizeException()
         } else {
-            f()
+            val data = block()
+
+            // Updates and writes header.
+            if (header.totalEntries <= 0) { header.id = id }
+            md.update(data)
+            header.update(md)
+
+            val raf = RandomAccessFile(file, "rw")
+            raf.seek(0)
+            raf.write(header.toByteArray())
+
+            // Writes new entry.
+            file.appendBytes(data)
         }
     }
 
@@ -161,31 +218,58 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
             return Collections.emptyIterator()
         }
     }
+
+    /**
+     * Iterator for raw entry data. Useful for calculating checksum of the
+     * segment.
+     */
+    fun rawIterator(): Iterator<ByteArray> {
+        if (file.exists()) {
+            return RawSegmentIterator(file)
+        } else {
+            return Collections.emptyIterator()
+        }
+    }
 }
 
-class SegmentException : Throwable("Maximum log-file size reached; consider using nextSegment().")
+sealed class SegmentException(msg: String) : Throwable(msg) {
+    class SizeException : SegmentException("Maximum log-file size reached; consider using nextSegment().")
+    class HeaderException : SegmentException("Invalid header")
+    class ChecksumException : SegmentException("Checksum won't match data")
+}
 
 /**
- * Iterator for entries in a segment file.
- * @param file the segment file to use.
+ * Iterator for raw data of a segment. Useful for building higher-level iterators
+ * and calculating the checksum.
  */
-class SegmentIterator(file: File) : Iterator<Entry> {
-    val inputStream = DataInputStream(file.inputStream().buffered())
-    var entry: Entry? = null
+class RawSegmentIterator(file: File) : Iterator<ByteArray> {
+    val input: DataInputStream = DataInputStream(file.inputStream().buffered())
+    var next: ByteArray? = null
+    init { input.skip(HEADER_SIZE.toLong()) }
 
     override fun hasNext(): Boolean {
         try {
-            val entrySize = inputStream.readInt()
-            val entryData = ByteArray(entrySize)
-            inputStream.read(entryData)
-            entry = Entry.parseFrom(entryData)
+            val dataSize = input.readInt()
+            val data = ByteArray(dataSize)
+            input.read(data)
+            next = data
             return true
         } catch (e: EOFException) {
             return false
         }
     }
 
-    override fun next(): Entry {
-        return entry!!
+    override fun next(): ByteArray {
+        return next!!
     }
+}
+
+/**
+ * Iterator for entries in a segment file.
+ * @param file the segment file to use.
+ */
+class SegmentIterator(file: File) : Iterator<Entry> {
+    val rawIterator = RawSegmentIterator(file)
+    override fun hasNext(): Boolean = rawIterator.hasNext()
+    override fun next(): Entry = Entry.parseFrom(rawIterator.next())
 }
