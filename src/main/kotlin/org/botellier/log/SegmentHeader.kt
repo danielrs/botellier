@@ -17,6 +17,9 @@ const val HEADER_SIZE = 44
  * The size of the serialized header is always 28 bytes. As the first 4 bytes are used
  * for specifying the size of the underlying protocol buffer (which can be variable size);
  * the rest of bytes are padded to meet the 28 bytes.
+ *
+ * Note that this class supposed to be directly manipulated by the Segment class. No other purpose
+ * is intended.
  */
 class SegmentHeader private constructor(initialId: Int, initialChecksum: String, initialEntries: Int) {
     companion object {
@@ -43,7 +46,7 @@ class SegmentHeader private constructor(initialId: Int, initialChecksum: String,
      * Creates a new SegmentHeader.
      * @param md the MessageDigest to use for initial checksum.
      */
-    constructor(md: MessageDigest) : this(0, "", 0) {
+    constructor(md: MessageDigest) : this(-1, "", 0) {
         checksum = md.tryDigest().toHexString()
     }
 

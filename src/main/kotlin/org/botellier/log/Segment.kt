@@ -1,8 +1,6 @@
 package org.botellier.log
 
 import com.google.protobuf.ByteString
-import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream
-import org.apache.zookeeper.server.ByteBufferOutputStream
 import java.io.*
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -35,13 +33,11 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
         // Initialize props.
         path = Paths.get(root, name()).toAbsolutePath().normalize()
         file = File(path.toUri())
-        md = MessageDigest.getInstance("MD5")
+        md = computeDigest()
         header = if (file.exists()) SegmentHeader.parseFrom(file.inputStream()) else SegmentHeader(md)
 
         // Validates checksum.
-        rawIterator().forEach { md.update(it.size.toByteArray()); md.update(it) }
         val checksum = md.tryDigest().toHexString()
-
         if (header.checksum != checksum) {
             throw SegmentException.ChecksumException(header.checksum, checksum)
         }
@@ -62,6 +58,25 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      * Deletes the segment file.
      */
     fun clear() = file.delete()
+
+    /**
+     * Computes the current message digest of the segment file, which implies that all the data is going to be
+     * traverse.
+     * @returns the current MessageDigest of the file.
+     */
+    fun computeDigest(): MessageDigest {
+        val md = MessageDigest.getInstance("MD5")
+        rawIterator().forEach { md.update(it.size.toByteArray()); md.update(it) }
+        return md
+    }
+
+    // ----------------
+    // Information from header.
+    // ----------------
+
+    val id: Int get() = header.id
+    val checksum: String get() = header.checksum
+    val totalEntries: Int get() = header.totalEntries
 
     // ----------------
     // Operations on segment
@@ -203,7 +218,6 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
 
 sealed class SegmentException(msg: String) : Throwable(msg) {
     class SizeException : SegmentException("Maximum log-file size reached; consider using nextSegment().")
-    class HeaderException : SegmentException("Invalid header")
     class ChecksumException(before: String, after: String)
         : SegmentException("Checksum mismatch. Header is '$before' while data is '$after'.")
 }

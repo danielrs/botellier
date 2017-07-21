@@ -16,7 +16,7 @@ class SegmentHeaderTest {
         header.writeTo(output)
 
         val recovered = SegmentHeader.parseFrom(output.toByteArray())
-        Assert.assertEquals(0, recovered.id)
+        Assert.assertEquals(-1, recovered.id)
         Assert.assertEquals(md.digest().toHexString(), recovered.checksum)
         Assert.assertEquals(1, recovered.totalEntries)
     }
