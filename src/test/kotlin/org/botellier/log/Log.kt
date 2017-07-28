@@ -6,8 +6,8 @@ import java.io.File
 import java.util.*
 
 class LogTest {
-    fun log(root: String, size: Int, clear: Boolean = false, f: Log.() -> Unit) {
-        val log = Log(root, "test-segment-", size, clear)
+    fun log(root: String, segmentSize: Int, clear: Boolean = false, f: Log.() -> Unit) {
+        val log = Log(root, "test-segment-", segmentSize, clear)
         log.f()
         log.clear()
     }
@@ -60,6 +60,46 @@ class LogTest {
         withDummy(3) { log(it.toString(), 10, true) {
             Assert.assertEquals(1, segments.size)
             Assert.assertTrue(toList().isEmpty())
+        }}
+    }
+
+    @Test
+    fun skippingEntriesOnEmptyLog() {
+        withDummy { log(it.toString(), 10, true) {
+            val res = query(87)
+            Assert.assertEquals(0, res.toList().size)
+        }}
+    }
+
+    @Test
+    fun skippingEntriesOnSingleSegmentLog() {
+        withDummy { log(it.toString(), 1024*1024, true) {
+            for (i in 0..100) {
+                create("$i", "$i".toByteArray())
+            }
+
+            val res = query(87).fold("", { acc, entry ->
+                acc + entry.id
+            })
+
+            Assert.assertEquals(1, segments.size)
+            Assert.assertEquals("87888990919293949596979899100", res)
+        }}
+    }
+
+    @Test
+    fun skippingEntriesOnMultipleSegmentLog() {
+        withDummy { log(it.toString(), 10, true) {
+            for (i in 0..100) {
+                create("$i", "$i".toByteArray())
+            }
+
+            val res = query(95).fold("", { acc, entry ->
+                acc + entry.id
+            })
+
+            Assert.assertEquals(101, segments.size)
+            Assert.assertEquals("9596979899100", res)
         }}
     }
 }

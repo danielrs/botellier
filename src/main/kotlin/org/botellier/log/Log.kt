@@ -7,17 +7,23 @@ import java.nio.file.Paths
 /**
  * Creates a new log handler with at the specified base dir. The size
  * of each segment file can also be specified.
+ *
+ * This class is basically an abstraction on top of Segment. It offers automatic creation
+ * of new segments and querying of entries by range, which is useful for getting only a subset of
+ * all the entries.
+ *
  * @param root the base dir to use for logs.
  * @param clear if set to true, it will clear all existing segments and start from scratch.
+ * @property segmentPrefix the prefix string to use for filenames.
  * @property segmentSize the size (in bytes) of each segment.
- * @property path The base directory that holds all the logs.
+ * @property path the base directory that holds all the logs.
  * @property id an monotonic increasing value that changes each time an entry is added.
+ * @property segments the list of segments for this log.
  */
 class Log(root: String = "./", val segmentPrefix: String = "segment-", val segmentSize: Int = 2*1024*1024, clear: Boolean = false)
     : Iterable<Entry> {
     val path: Path
     var id: Int private set
-
     val segments: MutableList<Segment>
 
     init {
@@ -141,6 +147,22 @@ class Log(root: String = "./", val segmentPrefix: String = "segment-", val segme
         segmentOperation { id, segment ->
             segment.endTransaction(id)
         }
+    }
+
+    // ----------------
+    // Querying.
+    // ----------------
+
+    /**
+     * Returns an iterator that traverses the entries starting with the entry that has the given id.
+     * @param start the id of the first entry.
+     * @returns a Sequence containing the entries.
+     */
+    fun query(start: Int): Sequence<Entry> {
+        val logIterator = LogIterator(segments.dropWhile { it.id + it.totalEntries < start })
+        return logIterator
+                .asSequence()
+                .dropWhile { it.id < start }
     }
 
     // ----------------
