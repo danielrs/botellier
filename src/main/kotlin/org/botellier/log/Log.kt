@@ -87,13 +87,13 @@ class Log(root: String = "./", val segmentPrefix: String = "segment-", val segme
     // Entry operations.
     // ----------------
 
-    private fun segmentOperation(f: (Int, Segment) -> Unit) {
+    private fun logOperation(f: (Int, Segment) -> Unit) {
         try {
             f(id, segments.last())
             id++
         } catch (e: SegmentException) {
             segments.add(segments.last().nextSegment())
-            segmentOperation(f)
+            logOperation(f)
         }
     }
 
@@ -102,7 +102,7 @@ class Log(root: String = "./", val segmentPrefix: String = "segment-", val segme
      * @see Segment.delete
      */
     fun delete(key: String) {
-        segmentOperation { id, segment ->
+        logOperation { id, segment ->
             segment.delete(id, key)
         }
     }
@@ -112,7 +112,7 @@ class Log(root: String = "./", val segmentPrefix: String = "segment-", val segme
      * @see Segment.set
      */
     fun set(key: String, before: ByteArray, after: ByteArray) {
-        segmentOperation { id, segment ->
+        logOperation { id, segment ->
             segment.set(id, key, before, after)
         }
     }
@@ -122,7 +122,7 @@ class Log(root: String = "./", val segmentPrefix: String = "segment-", val segme
      * @see Segment.create
      */
     fun create(key: String, data: ByteArray) {
-        segmentOperation { id, segment ->
+        logOperation { id, segment ->
             segment.create(id, key, data)
         }
     }
@@ -132,8 +132,8 @@ class Log(root: String = "./", val segmentPrefix: String = "segment-", val segme
      * the beginning of a transaction.
      * @see Segment.beginTransaction
      */
-    fun beginTransaction(id: Int) {
-        segmentOperation { id, segment ->
+    fun beginTransaction() {
+        logOperation { id, segment ->
             segment.beginTransaction(id)
         }
     }
@@ -143,14 +143,14 @@ class Log(root: String = "./", val segmentPrefix: String = "segment-", val segme
      * the end of a transaction.
      * @see Segment.endTransaction
      */
-    fun endTransaction(id: Int) {
-        segmentOperation { id, segment ->
+    fun endTransaction() {
+        logOperation { id, segment ->
             segment.endTransaction(id)
         }
     }
 
     // ----------------
-    // Querying.
+    // Querying and extending.
     // ----------------
 
     /**
@@ -163,6 +163,29 @@ class Log(root: String = "./", val segmentPrefix: String = "segment-", val segme
         return logIterator
                 .asSequence()
                 .dropWhile { it.id < start }
+    }
+
+    /**
+     * Reads the given entry and writes to the current log as is. That means the ID needs to correspond
+     * to next ID in this log's sequence.
+     * @param entry the entry to read.
+     */
+    fun extend(entry: Entry) {
+        if (id == entry.id) {
+            logOperation { id, segment ->
+                segment.segmentOperation(id, { entry })
+            }
+        } else {
+            throw LogException.ExtendException(id, entry.id)
+        }
+    }
+
+    /**
+     * Just like extend but takes a sequence of entries instead of a single one.
+     * @param entries the sequence of entries to read.
+     */
+    fun extend(entries: Sequence<Entry>) {
+      entries.toList().map { this.extend(it) }
     }
 
     // ----------------
@@ -189,4 +212,9 @@ class LogIterator(segments: List<Segment>) : Iterator<Entry> {
     override fun next(): Entry {
         return iterators.first().next()
     }
+}
+
+sealed class LogException(msg: String) : Throwable(msg) {
+    class ExtendException(id: Int, tried: Int)
+        : LogException("Invalid extend id ($tried); has $id.")
 }

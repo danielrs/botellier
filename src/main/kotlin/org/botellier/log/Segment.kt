@@ -163,7 +163,11 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
     // Misc functions.
     // ----------------
 
-    private fun segmentOperation(id: Int, block: () -> Entry) {
+    /**
+     * Appends the given entry to the segment. Updating the checksum
+     * and header accordingly.
+     */
+    fun segmentOperation(id: Int, block: () -> Entry) {
         if (file.length() >= maxSize) {
             throw SegmentException.SizeException()
         } else {

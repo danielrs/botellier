@@ -102,4 +102,47 @@ class LogTest {
             Assert.assertEquals("9596979899100", res)
         }}
     }
+
+    @Test
+    fun extendingWithValidSequence() {
+        withDummy {
+            val baseLog = Log(it.toString(), "test-segment-base-")
+            baseLog.create("zero", "0".toByteArray())
+            baseLog.create("one", "1".toByteArray())
+            baseLog.create("two", "2".toByteArray())
+            baseLog.create("three", "3".toByteArray())
+            baseLog.create("four", "4".toByteArray())
+
+            val extendedLog = Log(it.toString(), "test-segment-ext-")
+            extendedLog.create("zero", "0".toByteArray())
+            extendedLog.extend(baseLog.query(1))
+
+            val baseRes = baseLog.fold("", { acc, entry ->
+                acc + (entry as SetEntry).key
+            })
+
+            val extendedRes = extendedLog.fold("", { acc, entry ->
+                acc + (entry as SetEntry).key
+            })
+
+            Assert.assertEquals(baseRes, extendedRes)
+        }
+    }
+
+    @Test(expected = LogException.ExtendException::class)
+    fun extendingWithInvalidSequence() {
+        withDummy {
+            val baseLog = Log(it.toString(), "test-segment-base-")
+            baseLog.create("zero", "0".toByteArray())
+            baseLog.create("one", "1".toByteArray())
+            baseLog.create("two", "2".toByteArray())
+            baseLog.create("three", "3".toByteArray())
+            baseLog.create("four", "4".toByteArray())
+
+            val extendedLog = Log(it.toString(), "test-segment-ext-")
+            extendedLog.create("zero", "0".toByteArray())
+            extendedLog.extend(baseLog.query(2))
+        }
+
+    }
 }
