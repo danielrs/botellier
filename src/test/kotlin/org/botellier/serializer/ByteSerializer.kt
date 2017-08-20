@@ -24,6 +24,13 @@ class ByteSerializerTest {
     }
 
     @Test
+    fun renderRaw() {
+        val bytes = "Hello, World!".toByteArray()
+        val value = RawValue(bytes)
+        Assert.assertArrayEquals(value.toByteArray(), "$13\r\nHello, World!\r\n".toByteArray())
+    }
+
+    @Test
     fun renderEmptyString() {
         val value = StringValue("")
         Assert.assertArrayEquals(value.toByteArray(), "$0\r\n\r\n".toByteArray())

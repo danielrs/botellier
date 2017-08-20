@@ -145,7 +145,7 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      */
     fun beginTransaction(id: Int) {
         segmentOperation(id) {
-            buildBeginTransactionEntry(id) {}
+            buildBeginTransactionEntry(id)
         }
     }
 
@@ -155,7 +155,7 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
      */
     fun endTransaction(id: Int) {
         segmentOperation(id) {
-            buildEndTransactionEntry(id) {}
+            buildEndTransactionEntry(id)
         }
     }
 

@@ -19,6 +19,7 @@ class ByteSerializer(override val value: StoreType?) : Serializer {
             is IntValue -> renderInt(bos, value)
             is FloatValue -> renderFloat(bos, value)
             is StringValue -> renderString(bos, value)
+            is RawValue -> renderRaw(bos, value)
             is NilValue -> renderNil(bos)
             is ListValue -> renderList(bos, value)
             is SetValue -> renderSet(bos, value)
@@ -50,6 +51,19 @@ class ByteSerializer(override val value: StoreType?) : Serializer {
         bos.write(NEWLINE)
     }
 
+    private fun renderRaw(bos: ByteArrayOutputStream, value: RawValue) {
+        bos.write('$'.toInt())
+        bos.write(value.value.size.toString().toByteArray())
+        bos.write(NEWLINE)
+        bos.write(value.value)
+        bos.write(NEWLINE)
+    }
+
+    private fun renderNil(bos: ByteArrayOutputStream) {
+        bos.write("$-1".toByteArray())
+        bos.write(NEWLINE)
+    }
+
     private fun renderList(bos: ByteArrayOutputStream, list: ListValue) {
         bos.write('*'.toInt())
         bos.write(list.size.toString().toByteArray())
@@ -76,11 +90,6 @@ class ByteSerializer(override val value: StoreType?) : Serializer {
             render(bos, StringValue(key))
             render(bos, value)
         }
-    }
-
-    private fun renderNil(bos: ByteArrayOutputStream) {
-        bos.write("$-1".toByteArray())
-        bos.write(NEWLINE)
     }
 }
 

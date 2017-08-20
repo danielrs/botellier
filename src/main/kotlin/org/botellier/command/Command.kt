@@ -97,6 +97,18 @@ abstract class ReadStoreCommand : Command() {
     fun execute(store: ReadStore) = run(store)
 }
 
+/**
+ * Commands related to node-level functions such as replication.
+ * These type of commands return binary data, and they are not
+ * intended to be used by the end-user.
+ */
+abstract class NodeCommand : Command() {
+    open fun run(server: Server, client: Client): ByteArray {
+        throw CommandException.CommandDisabledException(name)
+    }
+    fun execute(server: Server, client: Client) = run(server, client)
+}
+
 // TODO: Add logging to mutator functions.
 /**
  * Commands that have full access to the store, therefore,

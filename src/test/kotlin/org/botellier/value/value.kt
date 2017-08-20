@@ -32,6 +32,13 @@ class StoreValueTest {
     }
 
     @Test
+    fun rawValue() {
+        val bytes = "ONE, TWO, THREE".toByteArray()
+        val raw = RawValue(bytes)
+        Assert.assertArrayEquals(bytes, raw.value)
+    }
+
+    @Test
     fun listAndSetCloneNotSameAsOriginal() {
         val list = ListValue(listOf(1, 2).map(Int::toValue))
         val set = SetValue(setOf("one", "two"))

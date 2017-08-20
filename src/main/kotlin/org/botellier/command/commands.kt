@@ -1,5 +1,7 @@
 package org.botellier.command
 
+import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream
+import org.botellier.log.*
 import org.botellier.server.Client
 import org.botellier.server.Server
 import org.botellier.store.*
@@ -9,6 +11,8 @@ import kotlin.reflect.full.createInstance
 // from: https://redis.io/commands
 
 val COMMANDS = arrayOf(
+        // Node.
+        GetLogCommand::class,
         // Connection.
         AuthCommand::class,
         EchoCommand::class,
@@ -48,6 +52,52 @@ val COMMANDS = arrayOf(
 ).map { it.createInstance().name to it }.toMap()
 
 private val OK = StringValue("OK")
+
+// ----------------
+// Node.
+// ----------------
+
+/**
+ * Returns the log history of the given
+ * base index starting from given version.
+ */
+// TODO: Should optimize performance while creating response data. Maybe a new StoreValue should be added for raw bytes.
+@WithCommand("GETLOG")
+class GetLogCommand : ConnCommand() {
+    @field:Parameter(0)
+    var index = intValue
+
+    @field:Parameter(1)
+    var version = intValue
+
+    override fun run(server: Server, client: Client): StoreValue {
+        try {
+            val db = server.dbs[index.value]
+            val query = db.log.query(version.value)
+            val bos = ByteOutputStream()
+
+            // begin and end mark the start and finish of the sequence.
+            val begin = buildBeginTransactionEntry(-1)
+            val end = buildEndTransactionEntry(-1)
+
+            // Write the data.
+            bos.write(begin.protos.serializedSize.toByteArray())
+            bos.write(begin.protos.toByteArray())
+            for (entry in query) {
+                bos.write(entry.protos.serializedSize.toByteArray())
+                bos.write(entry.protos.toByteArray())
+            }
+            bos.write(end.protos.serializedSize.toByteArray())
+            bos.write(end.protos.toByteArray())
+
+            return bos.bytes.toValue()
+        } catch (e: IndexOutOfBoundsException) {
+            throw CommandException.RuntimeException("Requested DB index does not exists.")
+        } catch (e: Throwable) {
+            throw CommandException.RuntimeException("Unexpected error requesting log: $e")
+        }
+    }
+}
 
 // ----------------
 // Connection.

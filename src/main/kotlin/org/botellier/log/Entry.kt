@@ -97,7 +97,7 @@ fun buildSetEntry(id: Int, init: EntryProtos.SetEntry.Builder.() -> Unit): Entry
     return Entry.fromProtos(entry.build())
 }
 
-fun buildBeginTransactionEntry(id: Int, init: EntryProtos.BeginTransactionEntry.Builder.() -> Unit): Entry {
+fun buildBeginTransactionEntry(id: Int, init: EntryProtos.BeginTransactionEntry.Builder.() -> Unit = {}): Entry {
     val entry = EntryProtos.Entry.newBuilder()
     val transactionEntry = EntryProtos.BeginTransactionEntry.newBuilder()
 
@@ -108,7 +108,7 @@ fun buildBeginTransactionEntry(id: Int, init: EntryProtos.BeginTransactionEntry.
     return Entry.fromProtos(entry.build())
 }
 
-fun buildEndTransactionEntry(id: Int, init: EntryProtos.EndTransactionEntry.Builder.() -> Unit): Entry {
+fun buildEndTransactionEntry(id: Int, init: EntryProtos.EndTransactionEntry.Builder.() -> Unit = {}): Entry {
     val entry = EntryProtos.Entry.newBuilder()
     val transactionEntry = EntryProtos.EndTransactionEntry.newBuilder()
 

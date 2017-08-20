@@ -89,6 +89,10 @@ class StringValue(initialValue: String = "") : PrimitiveValue<String>(initialVal
     override fun toString() = unwrap()
 }
 
+class RawValue(val value: ByteArray = byteArrayOf()) : StorePrimitive {
+    override fun clone(): StorePrimitive = RawValue(value.clone())
+}
+
 class NilValue : StorePrimitive {
     override fun clone() = NilValue()
     override fun toString() = "nil"
@@ -227,6 +231,7 @@ fun Int.toValue(): IntValue = IntValue(this)
 fun Float.toValue(): FloatValue = FloatValue(this.toDouble())
 fun Double.toValue(): FloatValue = FloatValue(this)
 fun String.toValue(): StringValue = StringValue(this)
+fun ByteArray.toValue(): RawValue = RawValue(this)
 fun List<StorePrimitive>.toValue(): ListValue = ListValue(this)
 fun Set<String>.toValue(): SetValue = SetValue(this)
 fun Map<String, StoreValue>.toValue(): MapValue = MapValue(this)
