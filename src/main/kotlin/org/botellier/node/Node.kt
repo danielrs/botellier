@@ -3,9 +3,10 @@ package org.botellier.node
 import mu.KLogging
 import org.apache.zookeeper.*
 import org.apache.zookeeper.ZooDefs.Ids.OPEN_ACL_UNSAFE
+import org.botellier.server.Server
 import java.util.*
 
-class Node (zooServers: String) : Watcher {
+class Node (zooServers: String, password: String? = null) : Watcher {
     companion object : KLogging() // sets up logging.
 
     val id = Integer.toHexString(Random().nextInt())
@@ -15,6 +16,8 @@ class Node (zooServers: String) : Watcher {
 
     private var version = 0
     private var totalReplicas = 0 // replicas that are not leader or synced follower.
+
+    private val server = Server(password = password)
 
     // ----------------
     // Bootstrap.

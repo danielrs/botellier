@@ -38,7 +38,7 @@ class RequestDispatcher(val server: Server) {
                             writer.write(result.toByteArray())
                         }
                         else -> {
-                            throw CommandException.RuntimeException("Invalid commands.")
+                            throw CommandException.RuntimeException("Invalid command.")
                         }
                     }
                 }
