@@ -61,7 +61,7 @@ class Segment(val root: String, val sequence: Int, val prefix: String = "segment
 
     /**
      * Computes the current message digest of the segment file, which implies that all the data is going to be
-     * traverse.
+     * traversed.
      * @returns the current MessageDigest of the file.
      */
     fun computeDigest(): MessageDigest {

@@ -110,7 +110,7 @@ class ListValue(private val list: List<StorePrimitive> = listOf()): StoreWrapper
     /**
      * Creates a mutable clone of the immutable list and passes it to the given function. The return
      * value of that function is then used to create a new ListValue. Note that internal values
-     * are not cloned.
+     * are not copied.
      * @param block the callback to pass the mutable list to.
      * @returns the modified ListValue.
      */
